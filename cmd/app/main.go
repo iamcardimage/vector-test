@@ -374,6 +374,18 @@ func main() {
 		})
 	})
 
+	api.Post("/recalc/needs-second-part", func(c *fiber.Ctx) error {
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		n, err := db.RecalcNeedsSecondPart(gdb)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "recalc: " + err.Error()})
+		}
+		return c.JSON(fiber.Map{"success": true, "updated": n})
+	})
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8081"

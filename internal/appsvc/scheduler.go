@@ -1,0 +1,43 @@
+package appsvc
+
+import (
+	"context"
+	"log"
+	"os"
+	"time"
+
+	"vector/internal/db"
+
+	"github.com/robfig/cron/v3"
+)
+
+func StartCron() (*cron.Cron, error) {
+	spec := os.Getenv("APP_CRON")
+	if spec == "" {
+		spec = "0 4 * * *" // ежедневно в 04:00
+	}
+	c := cron.New()
+	_, err := c.AddFunc(spec, func() {
+		log.Printf("[app-cron] recalc start")
+		gdb, err := db.Connect()
+		if err != nil {
+			log.Printf("[app-cron] db connect error: %v", err)
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		_ = ctx // при необходимости — использовать в запросах
+		n, err := db.RecalcNeedsSecondPart(gdb)
+		if err != nil {
+			log.Printf("[app-cron] recalc error: %v", err)
+			return
+		}
+		log.Printf("[app-cron] recalc done, updated=%d", n)
+	})
+	if err != nil {
+		return nil, err
+	}
+	c.Start()
+	log.Printf("[app-cron] started spec=%q", spec)
+	return c, nil
+}
