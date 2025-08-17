@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vector-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sync:
+    build: .
+    container_name: vector-sync
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-vector}
+      DB_SSLMODE: disable
+      EXTERNAL_API_BASE_URL: ${EXTERNAL_API_BASE_URL}
+      EXTERNAL_API_TOKEN: ${EXTERNAL_API_TOKEN}
+      SYNC_CRON: ${SYNC_CRON:-0 3 * * *}
+      SYNC_PER_PAGE: ${SYNC_PER_PAGE:-100}
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: vector-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-vector}
+      DB_SSLMODE: disable
+      PORT: 8081
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

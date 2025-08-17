@@ -1,0 +1,44 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Go build artifacts
+bin/
+build/
+dist/
+*.test
+*.out
+coverage.*
+coverage/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Temp / logs
+tmp/
+*.log
+*.tmp
+
+# Go workspaces (если не используете мульти-модуль — не коммитим)
+go.work
+go.work.sum
+
+# Env (секреты не в репо)
+.env
+.env.*
+!.env.example
+
+# Node/Web (на будущее)
+node_modules/
+web/node_modules/
+web/build/
+web/dist/
+
+# Docker локальные данные (если появятся)
+docker-data/
