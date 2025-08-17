@@ -8,6 +8,7 @@ import (
 	"vector/internal/models"
 
 	"github.com/joho/godotenv"
+	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -139,4 +140,239 @@ func ListCurrentClients(gdb *gorm.DB, page, perPage int, needsSecondPart *bool) 
 		Scan(&items).Error
 
 	return
+}
+
+func MigrateCoreSecondPart(gdb *gorm.DB) error {
+	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
+		return err
+	}
+	if err := gdb.AutoMigrate(&models.SecondPartVersion{}); err != nil {
+		return err
+	}
+	// Один текущий на клиента
+	if err := gdb.Exec(`
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_second_part_current
+		ON core.second_part_versions (client_id)
+		WHERE is_current = true
+	`).Error; err != nil {
+		return err
+	}
+	// Ускорить выборку “актуальная 2-я часть на текущей версии клиента”
+	return gdb.Exec(`
+		CREATE INDEX IF NOT EXISTS idx_sp_client_version_current
+		ON core.second_part_versions (client_id, client_version)
+		WHERE is_current = true
+	`).Error
+}
+
+// Текущая версия клиента
+func GetClientCurrent(gdb *gorm.DB, id int) (models.ClientVersion, error) {
+	var v models.ClientVersion
+	err := gdb.Where("client_id = ? AND is_current = true", id).Take(&v).Error
+	return v, err
+}
+
+// Текущая 2-я часть
+func GetSecondPartCurrent(gdb *gorm.DB, id int) (models.SecondPartVersion, error) {
+	var sp models.SecondPartVersion
+	err := gdb.Where("client_id = ? AND is_current = true", id).Take(&sp).Error
+	return sp, err
+}
+
+// История 2-й части
+func ListSecondPartHistory(gdb *gorm.DB, id int) ([]models.SecondPartVersion, error) {
+	var vs []models.SecondPartVersion
+	err := gdb.Where("client_id = ?", id).Order("version ASC").Find(&vs).Error
+	return vs, err
+}
+
+// Создать draft 2-й части (SCD2) с префиллом и, опционально, override Data и risk
+func CreateSecondPartDraft(
+	gdb *gorm.DB,
+	clientID int,
+	riskLevel *string,
+	createdBy *int,
+	dataOverride *datatypes.JSON,
+) (models.SecondPartVersion, error) {
+	now := time.Now().UTC()
+	var out models.SecondPartVersion
+
+	err := gdb.Transaction(func(tx *gorm.DB) error {
+		// текущий клиент
+		curClient, err := GetClientCurrent(tx, clientID)
+		if err != nil {
+			return err
+		}
+
+		// текущая 2-я часть
+		var curSP models.SecondPartVersion
+		err = tx.Where("client_id = ? AND is_current = true", clientID).Take(&curSP).Error
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+
+		// закрыть текущую 2-ю часть, если была
+		nextVersion := 1
+		prefill := datatypes.JSON([]byte(`{}`))
+		if err == nil {
+			nextVersion = curSP.Version + 1
+			prefill = curSP.Data
+			if err := tx.Model(&models.SecondPartVersion{}).
+				Where("client_id = ? AND is_current = true", clientID).
+				Updates(map[string]any{
+					"is_current": false,
+					"valid_to":   now,
+				}).Error; err != nil {
+				return err
+			}
+		}
+
+		// итоговый Data: override > префилл
+		data := prefill
+		if dataOverride != nil {
+			data = *dataOverride
+		}
+
+		// расчет due_at по risk
+		var dueAt *time.Time
+		var risk string
+		if riskLevel != nil && *riskLevel != "" {
+			risk = *riskLevel
+			years := 0
+			if risk == "low" {
+				years = 3
+			} else {
+				years = 1
+			}
+			t := now.AddDate(years, 0, 0)
+			dueAt = &t
+		}
+
+		sp := models.SecondPartVersion{
+			ClientID:      clientID,
+			ClientVersion: curClient.Version,
+			Version:       nextVersion,
+			IsCurrent:     true,
+			ValidFrom:     now,
+			Status:        "draft",
+			Data:          data,
+			RiskLevel:     risk,
+			DueAt:         dueAt,
+		}
+		if createdBy != nil {
+			sp.CreatedByUserID = createdBy
+		}
+
+		if err := tx.Create(&sp).Error; err != nil {
+			return err
+		}
+
+		// пометить у клиента, что 2-я часть создана
+		if err := tx.Model(&models.ClientVersion{}).
+			Where("client_id = ? AND is_current = true", clientID).
+			Update("second_part_created", true).Error; err != nil {
+			return err
+		}
+
+		out = sp
+		return nil
+	})
+	return out, err
+}
+
+// Создать новую версию 2-й части с новым статусом (SCD2), копируя данные из текущей.
+// Если текущей 2-й части нет — сначала создаём draft.
+func TransitionSecondPartStatus(
+	gdb *gorm.DB,
+	clientID int,
+	newStatus string, // submitted|approved|rejected|doc_requested
+	actorID *int,
+	reason *string, // для rejected / doc_requested
+) (models.SecondPartVersion, error) {
+	now := time.Now().UTC()
+	var out models.SecondPartVersion
+
+	err := gdb.Transaction(func(tx *gorm.DB) error {
+		// Текущий клиент (для привязки client_version)
+		curClient, err := GetClientCurrent(tx, clientID)
+		if err != nil {
+			return err
+		}
+
+		// Текущая 2-я часть
+		var curSP models.SecondPartVersion
+		err = tx.Where("client_id = ? AND is_current = true", clientID).Take(&curSP).Error
+		if err == gorm.ErrRecordNotFound {
+			// Нет текущей 2-й части — создадим draft, затем будем переходить
+			spDraft, err := CreateSecondPartDraft(tx, clientID, nil, actorID, nil)
+			if err != nil {
+				return err
+			}
+			curSP = spDraft
+		} else if err != nil {
+			return err
+		}
+
+		// Закрываем текущую
+		if err := tx.Model(&models.SecondPartVersion{}).
+			Where("client_id = ? AND is_current = true", clientID).
+			Updates(map[string]any{
+				"is_current": false,
+				"valid_to":   now,
+			}).Error; err != nil {
+			return err
+		}
+
+		// Создаём новую версию со сменой статуса, копируя Data/Risk из текущей
+		next := models.SecondPartVersion{
+			ClientID:      clientID,
+			ClientVersion: curClient.Version,
+			Version:       curSP.Version + 1,
+			IsCurrent:     true,
+			ValidFrom:     now,
+			Status:        newStatus,
+			Data:          curSP.Data,
+			RiskLevel:     curSP.RiskLevel,
+			DueAt:         curSP.DueAt,
+			Reason:        "",
+		}
+
+		// Акторы и причина
+		if actorID != nil {
+			switch newStatus {
+			case "approved":
+				next.ApprovedByUserID = actorID
+			default:
+				next.UpdatedByUserID = actorID
+			}
+		}
+		if reason != nil {
+			next.Reason = *reason
+		}
+
+		if err := tx.Create(&next).Error; err != nil {
+			return err
+		}
+
+		out = next
+		return nil
+	})
+
+	return out, err
+}
+
+func SubmitSecondPart(gdb *gorm.DB, clientID int, userID *int) (models.SecondPartVersion, error) {
+	return TransitionSecondPartStatus(gdb, clientID, "submitted", userID, nil)
+}
+
+func ApproveSecondPart(gdb *gorm.DB, clientID int, approvedBy *int) (models.SecondPartVersion, error) {
+	return TransitionSecondPartStatus(gdb, clientID, "approved", approvedBy, nil)
+}
+
+func RejectSecondPart(gdb *gorm.DB, clientID int, userID *int, reason string) (models.SecondPartVersion, error) {
+	return TransitionSecondPartStatus(gdb, clientID, "rejected", userID, &reason)
+}
+
+func RequestDocsSecondPart(gdb *gorm.DB, clientID int, userID *int, reason string) (models.SecondPartVersion, error) {
+	return TransitionSecondPartStatus(gdb, clientID, "doc_requested", userID, &reason)
 }
