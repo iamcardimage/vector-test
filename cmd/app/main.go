@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"vector/internal/db"
 	"vector/internal/models"
@@ -283,6 +284,94 @@ func main() {
 			return c.Status(500).JSON(fiber.Map{"error": "request-docs: " + err.Error()})
 		}
 		return c.JSON(sp)
+	})
+
+	api.Get("/clients", func(c *fiber.Ctx) error {
+		page, _ := strconv.Atoi(c.Query("page", "1"))
+		perPage, _ := strconv.Atoi(c.Query("per_page", "100"))
+
+		var filterPtr *bool
+		if v := c.Query("needs_second_part"); v != "" {
+			b := v == "true" || v == "1"
+			filterPtr = &b
+		}
+
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+
+		items, total, err := db.ListCurrentClients(gdb, page, perPage, filterPtr)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "list: " + err.Error()})
+		}
+
+		return c.JSON(fiber.Map{
+			"success":      true,
+			"total_count":  total,
+			"per_page":     perPage,
+			"current_page": page,
+			"users":        items,
+		})
+	})
+
+	api.Get("/clients/search", func(c *fiber.Ctx) error {
+		page, _ := strconv.Atoi(c.Query("page", "1"))
+		perPage, _ := strconv.Atoi(c.Query("per_page", "100"))
+
+		var needsPtr *bool
+		if v := c.Query("needs_second_part"); v != "" {
+			b := v == "true" || v == "1"
+			needsPtr = &b
+		}
+
+		var statusPtr *string
+		if v := c.Query("sp_status"); v != "" {
+			statusPtr = &v // draft|submitted|approved|rejected|doc_requested
+		}
+
+		var duePtr *time.Time
+		if v := c.Query("due_before"); v != "" {
+			if t, err := time.Parse(time.RFC3339, v); err == nil {
+				duePtr = &t
+			} else {
+				return c.Status(400).JSON(fiber.Map{"error": "invalid due_before (RFC3339)"})
+			}
+		}
+
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		items, total, err := db.ListClientsWithSP(gdb, page, perPage, needsPtr, statusPtr, duePtr)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "list: " + err.Error()})
+		}
+
+		// пометить устаревшую 2-ю часть, если client_version != sp_client_version
+		type Row struct {
+			db.ClientWithSP
+			Stale *bool `json:"stale,omitempty"`
+		}
+		out := make([]Row, 0, len(items))
+		for _, it := range items {
+			row := Row{ClientWithSP: it}
+			if it.SpClientVersion != nil {
+				stale := *it.SpClientVersion != it.ClientVersion
+				if stale {
+					row.Stale = &stale
+				}
+			}
+			out = append(out, row)
+		}
+
+		return c.JSON(fiber.Map{
+			"success":      true,
+			"total_count":  total,
+			"per_page":     perPage,
+			"current_page": page,
+			"users":        out,
+		})
 	})
 
 	port := os.Getenv("PORT")
