@@ -28,6 +28,12 @@ func StartCron() (*cron.Cron, error) {
 		defer cancel()
 		_ = ctx // при необходимости — использовать в запросах
 		n, err := db.RecalcNeedsSecondPart(gdb)
+		n2, err2 := db.RecalcPassportExpiry(gdb)
+		if err2 != nil {
+			log.Printf("[app-cron] passport recalc error: %v", err2)
+		} else {
+			log.Printf("[app-cron] passport recalc updated=%d", n2)
+		}
 		if err != nil {
 			log.Printf("[app-cron] recalc error: %v", err)
 			return

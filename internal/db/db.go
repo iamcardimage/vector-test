@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 	"vector/internal/models"
 
@@ -287,23 +288,22 @@ func TransitionSecondPartStatus(
 	clientID int,
 	newStatus string, // submitted|approved|rejected|doc_requested
 	actorID *int,
-	reason *string, // для rejected / doc_requested
+	reason *string,
 ) (models.SecondPartVersion, error) {
 	now := time.Now().UTC()
 	var out models.SecondPartVersion
 
 	err := gdb.Transaction(func(tx *gorm.DB) error {
-		// Текущий клиент (для привязки client_version)
+		// Текущий клиент
 		curClient, err := GetClientCurrent(tx, clientID)
 		if err != nil {
 			return err
 		}
 
-		// Текущая 2-я часть
+		// Текущая 2-я часть (если нет — создадим draft)
 		var curSP models.SecondPartVersion
 		err = tx.Where("client_id = ? AND is_current = true", clientID).Take(&curSP).Error
 		if err == gorm.ErrRecordNotFound {
-			// Нет текущей 2-й части — создадим draft, затем будем переходить
 			spDraft, err := CreateSecondPartDraft(tx, clientID, nil, actorID, nil)
 			if err != nil {
 				return err
@@ -323,7 +323,7 @@ func TransitionSecondPartStatus(
 			return err
 		}
 
-		// Создаём новую версию со сменой статуса, копируя Data/Risk из текущей
+		// База для новой версии
 		next := models.SecondPartVersion{
 			ClientID:      clientID,
 			ClientVersion: curClient.Version,
@@ -337,12 +337,28 @@ func TransitionSecondPartStatus(
 			Reason:        "",
 		}
 
-		// Акторы и причина
+		// Пересчёт due_at при approve
+		if newStatus == "approved" {
+			years := 1
+			if strings.ToLower(curSP.RiskLevel) == "low" {
+				years = 3
+			}
+			t := now.AddDate(years, 0, 0)
+			next.DueAt = &t
+
+			// Снять флаг "нужна 2-я часть" у текущего клиента
+			if err := tx.Model(&models.ClientVersion{}).
+				Where("client_id = ? AND is_current = true", clientID).
+				Update("needs_second_part", false).Error; err != nil {
+				return err
+			}
+		}
+
+		// Акторы/причина
 		if actorID != nil {
-			switch newStatus {
-			case "approved":
+			if newStatus == "approved" {
 				next.ApprovedByUserID = actorID
-			default:
+			} else {
 				next.UpdatedByUserID = actorID
 			}
 		}
@@ -480,4 +496,54 @@ func ListClientsWithSP(
 		Offset(offset).
 		Scan(&items).Error
 	return
+}
+
+// Миграция таблицы checks
+func MigrateCoreChecks(gdb *gorm.DB) error {
+	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
+		return err
+	}
+	return gdb.AutoMigrate(&models.SecondPartCheck{})
+}
+
+// Создать pending-проверку
+func CreateSecondPartCheck(gdb *gorm.DB, clientID, spVersion int, kind string, payload *datatypes.JSON, runBy *int) (models.SecondPartCheck, error) {
+	ch := models.SecondPartCheck{
+		ClientID:          clientID,
+		SecondPartVersion: spVersion,
+		Kind:              kind,
+		Status:            "pending",
+		Payload:           datatypes.JSON([]byte(`{}`)),
+		RunAt:             time.Now().UTC(),
+		RunByUserID:       runBy,
+	}
+	if payload != nil {
+		ch.Payload = *payload
+	}
+	return ch, gdb.Create(&ch).Error
+}
+
+// Обновить результат проверки
+func UpdateSecondPartCheckResult(gdb *gorm.DB, checkID uint, status string, result *datatypes.JSON) (models.SecondPartCheck, error) {
+	var ch models.SecondPartCheck
+	if err := gdb.Where("id = ?", checkID).Take(&ch).Error; err != nil {
+		return ch, err
+	}
+	now := time.Now().UTC()
+	ch.Status = status
+	ch.FinishedAt = &now
+	if result != nil {
+		ch.Result = *result
+	}
+	return ch, gdb.Save(&ch).Error
+}
+
+// Список проверок по клиенту (опционально по версии 2-й части)
+func ListSecondPartChecks(gdb *gorm.DB, clientID int, spVersion *int) ([]models.SecondPartCheck, error) {
+	var xs []models.SecondPartCheck
+	q := gdb.Where("client_id = ?", clientID)
+	if spVersion != nil {
+		q = q.Where("second_part_version = ?", *spVersion)
+	}
+	return xs, q.Order("id DESC").Find(&xs).Error
 }

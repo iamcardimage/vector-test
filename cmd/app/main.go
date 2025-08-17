@@ -73,6 +73,16 @@ func main() {
 		}
 		return c.SendString("migrated second_part")
 	})
+	app.Post("/migrate/app/checks", func(c *fiber.Ctx) error {
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).SendString("db connect error: " + err.Error())
+		}
+		if err := db.MigrateCoreChecks(gdb); err != nil {
+			return c.Status(500).SendString("migrate checks error: " + err.Error())
+		}
+		return c.SendString("migrated checks")
+	})
 	app.Post("/migrate/app/users", func(c *fiber.Ctx) error {
 		gdb, err := db.Connect()
 		if err != nil {
@@ -379,11 +389,124 @@ func main() {
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
 		}
-		n, err := db.RecalcNeedsSecondPart(gdb)
+		n1, err := db.RecalcNeedsSecondPart(gdb)
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "recalc: " + err.Error()})
 		}
-		return c.JSON(fiber.Map{"success": true, "updated": n})
+		n2, err := db.RecalcPassportExpiry(gdb)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "passport recalc: " + err.Error()})
+		}
+		return c.JSON(fiber.Map{
+			"success":              true,
+			"updated_due_or_stale": n1,
+			"updated_passport":     n2,
+		})
+	})
+
+	// Создать pending-проверку (kind обязателен). Если sp_version не передан — используем текущую 2-ю часть.
+	api.Post("/clients/:id/second-part/checks", func(c *fiber.Ctx) error {
+		u := c.Locals("user").(models.AppUser)
+		if u.Role == "viewer" {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+		id, _ := strconv.Atoi(c.Params("id"))
+		var in struct {
+			Kind      string         `json:"kind"`
+			Payload   map[string]any `json:"payload"`
+			SpVersion *int           `json:"sp_version"`
+		}
+		if err := c.BodyParser(&in); err != nil || strings.TrimSpace(in.Kind) == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "kind required"})
+		}
+
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+
+		// определить sp_version
+		spVer := 0
+		if in.SpVersion != nil {
+			spVer = *in.SpVersion
+		} else {
+			if curSP, err := db.GetSecondPartCurrent(gdb, id); err == nil {
+				spVer = curSP.Version
+			} else {
+				return c.Status(400).JSON(fiber.Map{"error": "no current second part; create draft first or pass sp_version"})
+			}
+		}
+
+		var payload *datatypes.JSON
+		if in.Payload != nil {
+			b, _ := json.Marshal(in.Payload)
+			d := datatypes.JSON(b)
+			payload = &d
+		}
+
+		ch, err := db.CreateSecondPartCheck(gdb, id, spVer, in.Kind, payload, func() *int { i := int(u.ID); return &i }())
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "create check: " + err.Error()})
+		}
+		return c.JSON(ch)
+	})
+
+	// Обновить результат проверки
+	api.Patch("/clients/:id/second-part/checks/:check_id", func(c *fiber.Ctx) error {
+		u := c.Locals("user").(models.AppUser)
+		if u.Role == "viewer" {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+		_, _ = strconv.Atoi(c.Params("id")) // зарезервировано на будущее валидации соответствия clientID
+		chID64, err := strconv.ParseUint(c.Params("check_id"), 10, 64)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "invalid check_id"})
+		}
+		var in struct {
+			Status string         `json:"status"` // passed|failed
+			Result map[string]any `json:"result"`
+		}
+		if err := c.BodyParser(&in); err != nil || (in.Status != "passed" && in.Status != "failed") {
+			return c.Status(400).JSON(fiber.Map{"error": "status must be passed or failed"})
+		}
+		var result *datatypes.JSON
+		if in.Result != nil {
+			b, _ := json.Marshal(in.Result)
+			d := datatypes.JSON(b)
+			result = &d
+		}
+
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		ch, err := db.UpdateSecondPartCheckResult(gdb, uint(chID64), in.Status, result)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "update check: " + err.Error()})
+		}
+		return c.JSON(ch)
+	})
+
+	// Список проверок
+	api.Get("/clients/:id/second-part/checks", func(c *fiber.Ctx) error {
+		id, _ := strconv.Atoi(c.Params("id"))
+		var spvPtr *int
+		if v := c.Query("sp_version"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				spvPtr = &n
+			} else {
+				return c.Status(400).JSON(fiber.Map{"error": "invalid sp_version"})
+			}
+		}
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		xs, err := db.ListSecondPartChecks(gdb, id, spvPtr)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "list checks: " + err.Error()})
+		}
+		return c.JSON(fiber.Map{"success": true, "checks": xs})
 	})
 
 	port := os.Getenv("PORT")
