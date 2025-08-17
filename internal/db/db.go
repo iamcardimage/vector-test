@@ -376,3 +376,36 @@ func RejectSecondPart(gdb *gorm.DB, clientID int, userID *int, reason string) (m
 func RequestDocsSecondPart(gdb *gorm.DB, clientID int, userID *int, reason string) (models.SecondPartVersion, error) {
 	return TransitionSecondPartStatus(gdb, clientID, "doc_requested", userID, &reason)
 }
+
+// Миграция таблицы пользователей
+func MigrateCoreUsers(gdb *gorm.DB) error {
+	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
+		return err
+	}
+	return gdb.AutoMigrate(&models.AppUser{})
+}
+
+// Поиск пользователя по Bearer-токену
+func GetUserByToken(gdb *gorm.DB, token string) (models.AppUser, error) {
+	var u models.AppUser
+	err := gdb.Where("token = ?", token).Take(&u).Error
+	return u, err
+}
+
+// Сиды (dev): создаём примеров пользователей
+func SeedAppUsers(gdb *gorm.DB) error {
+	users := []models.AppUser{
+		{Email: "admin@example.com", Role: "admin", Token: "admin-token"},
+		{Email: "staff@example.com", Role: "staff", Token: "staff-token"},
+		{Email: "viewer@example.com", Role: "viewer", Token: "viewer-token"},
+	}
+	for _, u := range users {
+		var existing models.AppUser
+		if err := gdb.Where("email = ?", u.Email).First(&existing).Error; err == gorm.ErrRecordNotFound {
+			if err := gdb.Create(&u).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}

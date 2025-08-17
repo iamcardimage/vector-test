@@ -5,23 +5,49 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"vector/internal/db"
+	"vector/internal/models"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 	"gorm.io/datatypes"
 )
 
+func asIntPtr(u uint) *int {
+	i := int(u)
+	return &i
+}
+
 func main() {
 	_ = godotenv.Load()
 
 	app := fiber.New()
 
+	// Auth middleware (Bearer <token>)
+	authmw := func(c *fiber.Ctx) error {
+		auth := c.Get("Authorization")
+		if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
+			return c.Status(401).JSON(fiber.Map{"error": "missing bearer token"})
+		}
+		token := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		u, err := db.GetUserByToken(gdb, token)
+		if err != nil {
+			return c.Status(401).JSON(fiber.Map{"error": "invalid token"})
+		}
+		c.Locals("user", u)
+		return c.Next()
+	}
+
+	// Публичные маршруты (health, миграции)
 	app.Get("/healthz", func(c *fiber.Ctx) error {
 		return c.SendString("ok")
 	})
-
 	app.Get("/dbping", func(c *fiber.Ctx) error {
 		gdb, err := db.Connect()
 		if err != nil {
@@ -36,7 +62,6 @@ func main() {
 		}
 		return c.SendString("db ok")
 	})
-
 	app.Post("/migrate/app/second-part", func(c *fiber.Ctx) error {
 		gdb, err := db.Connect()
 		if err != nil {
@@ -47,8 +72,32 @@ func main() {
 		}
 		return c.SendString("migrated second_part")
 	})
+	app.Post("/migrate/app/users", func(c *fiber.Ctx) error {
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).SendString("db connect error: " + err.Error())
+		}
+		if err := db.MigrateCoreUsers(gdb); err != nil {
+			return c.Status(500).SendString("migrate users error: " + err.Error())
+		}
+		return c.SendString("migrated users")
+	})
+	app.Post("/migrate/app/seed-users", func(c *fiber.Ctx) error {
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).SendString("db connect error: " + err.Error())
+		}
+		if err := db.SeedAppUsers(gdb); err != nil {
+			return c.Status(500).SendString("seed error: " + err.Error())
+		}
+		return c.SendString("seeded users")
+	})
 
-	app.Get("/clients/:id", func(c *fiber.Ctx) error {
+	// Защищённая группа (Bearer)
+	api := app.Group("/", authmw)
+
+	// GET текущий клиент + текущая 2-я часть
+	api.Get("/clients/:id", func(c *fiber.Ctx) error {
 		id, _ := strconv.Atoi(c.Params("id"))
 		gdb, err := db.Connect()
 		if err != nil {
@@ -84,7 +133,8 @@ func main() {
 		})
 	})
 
-	app.Get("/clients/:id/second-part/history", func(c *fiber.Ctx) error {
+	// GET история 2-й части
+	api.Get("/clients/:id/second-part/history", func(c *fiber.Ctx) error {
 		id, _ := strconv.Atoi(c.Params("id"))
 		gdb, err := db.Connect()
 		if err != nil {
@@ -110,45 +160,129 @@ func main() {
 		return c.JSON(fiber.Map{"success": true, "versions": out})
 	})
 
-	app.Post("/clients/:id/second-part", func(c *fiber.Ctx) error {
-		id, _ := strconv.Atoi(c.Params("id"))
+	// Helper: запретить мутации для viewer
+	canMutate := func(c *fiber.Ctx) (models.AppUser, bool) {
+		u := c.Locals("user").(models.AppUser)
+		if u.Role == "viewer" {
+			c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+			return u, false
+		}
+		return u, true
+	}
 
-		// простая схема ввода: { "risk_level":"low|high", "data": { ... } }
+	// POST создать draft 2-й части (prefill + опциональные data/risk)
+	api.Post("/clients/:id/second-part", func(c *fiber.Ctx) error {
+		u, ok := canMutate(c)
+		if !ok {
+			return nil
+		}
+		id, _ := strconv.Atoi(c.Params("id"))
 		var in struct {
-			RiskLevel string         `json:"risk_level"`
+			RiskLevel string         `json:"risk_level"` // low|high
 			Data      map[string]any `json:"data"`
-			CreatedBy *int           `json:"created_by_user_id"`
 		}
 		if err := c.BodyParser(&in); err != nil {
 			return c.Status(400).JSON(fiber.Map{"error": "invalid json"})
 		}
-
 		var dataOverride *datatypes.JSON
 		if in.Data != nil {
 			b, _ := json.Marshal(in.Data)
-			dj := datatypes.JSON(b)
-			dataOverride = &dj
+			d := datatypes.JSON(b)
+			dataOverride = &d
 		}
-
 		gdb, err := db.Connect()
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
 		}
-
-		sp, err := db.CreateSecondPartDraft(gdb, id, &in.RiskLevel, in.CreatedBy, dataOverride)
+		sp, err := db.CreateSecondPartDraft(gdb, id, &in.RiskLevel, asIntPtr(u.ID), dataOverride)
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "create draft: " + err.Error()})
 		}
+		return c.JSON(sp)
+	})
 
-		return c.JSON(fiber.Map{
-			"success":        true,
-			"client_id":      sp.ClientID,
-			"client_version": sp.ClientVersion,
-			"version":        sp.Version,
-			"status":         sp.Status,
-			"risk_level":     sp.RiskLevel,
-			"due_at":         sp.DueAt,
-		})
+	// POST submit 2-й части
+	api.Post("/clients/:id/second-part/submit", func(c *fiber.Ctx) error {
+		u, ok := canMutate(c)
+		if !ok {
+			return nil
+		}
+		id, _ := strconv.Atoi(c.Params("id"))
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		sp, err := db.SubmitSecondPart(gdb, id, asIntPtr(u.ID))
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "submit: " + err.Error()})
+		}
+		return c.JSON(sp)
+	})
+
+	// POST approve 2-й части
+	api.Post("/clients/:id/second-part/approve", func(c *fiber.Ctx) error {
+		u, ok := canMutate(c)
+		if !ok {
+			return nil
+		}
+		id, _ := strconv.Atoi(c.Params("id"))
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		sp, err := db.ApproveSecondPart(gdb, id, asIntPtr(u.ID))
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "approve: " + err.Error()})
+		}
+		return c.JSON(sp)
+	})
+
+	// POST reject 2-й части
+	api.Post("/clients/:id/second-part/reject", func(c *fiber.Ctx) error {
+		u, ok := canMutate(c)
+		if !ok {
+			return nil
+		}
+		id, _ := strconv.Atoi(c.Params("id"))
+		var in struct {
+			Reason string `json:"reason"`
+		}
+		if err := c.BodyParser(&in); err != nil || strings.TrimSpace(in.Reason) == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "reason required"})
+		}
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		sp, err := db.RejectSecondPart(gdb, id, asIntPtr(u.ID), in.Reason)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "reject: " + err.Error()})
+		}
+		return c.JSON(sp)
+	})
+
+	// POST запрос документов
+	api.Post("/clients/:id/second-part/request-docs", func(c *fiber.Ctx) error {
+		u, ok := canMutate(c)
+		if !ok {
+			return nil
+		}
+		id, _ := strconv.Atoi(c.Params("id"))
+		var in struct {
+			Reason string `json:"reason"`
+		}
+		if err := c.BodyParser(&in); err != nil || strings.TrimSpace(in.Reason) == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "reason required"})
+		}
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		sp, err := db.RequestDocsSecondPart(gdb, id, asIntPtr(u.ID), in.Reason)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "request-docs: " + err.Error()})
+		}
+		return c.JSON(sp)
 	})
 
 	port := os.Getenv("PORT")
