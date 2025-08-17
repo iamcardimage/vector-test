@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"vector/internal/models"
 
@@ -14,6 +15,11 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
+)
+
+var (
+	globalDB *gorm.DB
+	once     sync.Once
 )
 
 func Connect() (*gorm.DB, error) {
@@ -31,16 +37,33 @@ func Connect() (*gorm.DB, error) {
 		host, port, user, pass, name, ssl,
 	)
 
-	lg := logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{
-		SlowThreshold:             time.Second,
-		LogLevel:                  logger.Warn, // тише лог
-		IgnoreRecordNotFoundError: true,        // скрыть "record not found"
-		Colorful:                  true,
-	})
+	var openErr error
+	once.Do(func() {
+		lg := logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{
+			SlowThreshold:             time.Second,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  true,
+		})
 
-	return gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: lg,
+		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: lg})
+		if err != nil {
+			openErr = err
+			return
+		}
+		sqlDB, err := db.DB()
+		if err == nil {
+			sqlDB.SetMaxOpenConns(15)
+			sqlDB.SetMaxIdleConns(5)
+			sqlDB.SetConnMaxLifetime(5 * time.Minute)
+			sqlDB.SetConnMaxIdleTime(1 * time.Minute)
+		}
+		globalDB = db
 	})
+	if openErr != nil {
+		return nil, openErr
+	}
+	return globalDB, nil
 }
 
 func getenv(key, def string) string {
