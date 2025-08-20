@@ -68,6 +68,16 @@ func ApplyUsersBatch(gdb *gorm.DB, raws []json.RawMessage) (ApplyStats, error) {
 			birthday := extractString(m, "birthday")
 			birthPlace := extractString(m, "birth_place")
 			contactEmail := extractString(m, "contact_email")
+			inn := extractString(m, "inn")
+			snils := extractString(m, "snils")
+			createdLKAt := extractString(m, "created_lk_at")
+			updatedLKAt := extractString(m, "updated_lk_at")
+			passIssuerCode := extractString(m, "pass_issuer_code")
+			passSeries := extractString(m, "pass_series")
+			passNumber := extractString(m, "pass_number")
+			passIssueDate := extractString(m, "pass_issue_date")
+			passIssuer := extractString(m, "pass_issuer")
+			mainPhone := extractString(m, "main_phone")
 
 			if err == gorm.ErrRecordNotFound {
 				nv := models.ClientVersion{
@@ -79,6 +89,16 @@ func ApplyUsersBatch(gdb *gorm.DB, raws []json.RawMessage) (ApplyStats, error) {
 					Birthday:              birthday,
 					BirthPlace:            birthPlace,
 					ContactEmail:          contactEmail,
+					Inn:                   inn,
+					Snils:                 snils,
+					CreatedLKAt:           createdLKAt,
+					UpdatedLKAt:           updatedLKAt,
+					PassIssuerCode:        passIssuerCode,
+					PassSeries:            passSeries,
+					PassNumber:            passNumber,
+					PassIssueDate:         passIssueDate,
+					PassIssuer:            passIssuer,
+					MainPhone:             mainPhone,
 					ExternalRiskLevel:     externalRisk,
 					SecondPartTriggerHash: triggerHash,
 					NeedsSecondPart:       true,
@@ -126,7 +146,17 @@ func ApplyUsersBatch(gdb *gorm.DB, raws []json.RawMessage) (ApplyStats, error) {
 				Birthday:              birthday,
 				BirthPlace:            birthPlace,
 				ContactEmail:          contactEmail,
+				Inn:                   inn,
+				Snils:                 snils,
+				CreatedLKAt:           createdLKAt,
+				UpdatedLKAt:           updatedLKAt,
+				PassIssuerCode:        passIssuerCode,
+				PassSeries:            passSeries,
 				ExternalRiskLevel:     externalRisk,
+				PassNumber:            passNumber,
+				PassIssueDate:         passIssueDate,
+				PassIssuer:            passIssuer,
+				MainPhone:             mainPhone,
 				SecondPartTriggerHash: triggerHash,
 				NeedsSecondPart:       true,
 				SecondPartCreated:     cur.SecondPartCreated,
