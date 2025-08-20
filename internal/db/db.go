@@ -9,6 +9,7 @@ import (
 	"time"
 	"vector/internal/models"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
@@ -123,6 +124,9 @@ type ClientListItem struct {
 	Surname           string `json:"surname"`
 	Name              string `json:"name"`
 	Patronymic        string `json:"patronymic"`
+	Birthday          string `json:"birthday"`
+	BirthPlace        string `json:"birth_place"`
+	ContactEmail      string `json:"contact_email"`
 	ExternalRiskLevel string `gorm:"column:external_risk_level" json:"external_risk_level"`
 	NeedsSecondPart   bool   `gorm:"column:needs_second_part" json:"needs_second_part"`
 	SecondPartCreated bool   `gorm:"column:second_part_created" json:"second_part_created"`
@@ -154,6 +158,9 @@ func ListCurrentClients(gdb *gorm.DB, page, perPage int, needsSecondPart *bool) 
 			"surname",
 			"name",
 			"patronymic",
+			"birthday",
+			"birth_place",
+			"contact_email",
 			"external_risk_level",
 			"needs_second_part",
 			"second_part_created",
@@ -569,4 +576,66 @@ func ListSecondPartChecks(gdb *gorm.DB, clientID int, spVersion *int) ([]models.
 		q = q.Where("second_part_version = ?", *spVersion)
 	}
 	return xs, q.Order("id DESC").Find(&xs).Error
+}
+
+func isValidRole(role string) bool {
+	switch role {
+	case models.RoleAdministrator, models.RolePodft, models.RoleClientManagement:
+		return true
+	}
+	return false
+}
+
+func CreateAppUser(gdb *gorm.DB, email, role, token string) (models.AppUser, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return models.AppUser{}, fmt.Errorf("email required")
+	}
+	if !isValidRole(role) {
+		return models.AppUser{}, fmt.Errorf("invalid role")
+	}
+	if strings.TrimSpace(token) == "" {
+		token = uuid.NewString()
+	}
+	u := models.AppUser{
+		Email: email,
+		Role:  role,
+		Token: token,
+	}
+	if err := gdb.Create(&u).Error; err != nil {
+		return models.AppUser{}, err
+	}
+	return u, nil
+}
+
+func ListAppUsers(gdb *gorm.DB) ([]models.AppUser, error) {
+	var xs []models.AppUser
+	return xs, gdb.Order("id ASC").Find(&xs).Error
+}
+
+func UpdateUserRole(gdb *gorm.DB, id uint, role string) (models.AppUser, error) {
+	if !isValidRole(role) {
+		return models.AppUser{}, fmt.Errorf("invalid role")
+	}
+	var u models.AppUser
+	if err := gdb.First(&u, id).Error; err != nil {
+		return u, err
+	}
+	u.Role = role
+	return u, gdb.Save(&u).Error
+}
+
+// Ротировать (пересоздать) токен
+func RotateUserToken(gdb *gorm.DB, id uint) (models.AppUser, error) {
+	var u models.AppUser
+	if err := gdb.First(&u, id).Error; err != nil {
+		return u, err
+	}
+	u.Token = uuid.NewString()
+	return u, gdb.Save(&u).Error
+}
+
+// Удалить пользователя
+func DeleteAppUser(gdb *gorm.DB, id uint) error {
+	return gdb.Delete(&models.AppUser{}, id).Error
 }

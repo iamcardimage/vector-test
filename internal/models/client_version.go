@@ -7,11 +7,20 @@ import (
 )
 
 type ClientVersion struct {
-	ClientID   int `gorm:"not null;index"`
-	Version    int `gorm:"not null"`
-	Surname    string
-	Name       string
-	Patronymic string
+	ClientID     int `gorm:"not null;index"`
+	Version      int `gorm:"not null"`
+	Surname      string
+	Name         string
+	Patronymic   string
+	Birthday     string
+	BirthPlace   string
+	ContactEmail string
+	// ContactPhone   string
+	// ContactAddress string
+	// ContactCity    string
+	// ContactState   string
+	// ContactZip     string
+	// ContactCountry string
 
 	// риск из внешней базы (НЕ тот, что во второй части)
 	ExternalRiskLevel string

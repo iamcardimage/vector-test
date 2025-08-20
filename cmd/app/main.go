@@ -21,6 +21,24 @@ func asIntPtr(u uint) *int {
 	return &i
 }
 
+// Ролевые хелперы
+func hasRole(u models.AppUser, roles ...string) bool {
+	for _, r := range roles {
+		if u.Role == r {
+			return true
+		}
+	}
+	return false
+}
+func requireRoles(c *fiber.Ctx, roles ...string) (models.AppUser, bool) {
+	u := c.Locals("user").(models.AppUser)
+	if len(roles) == 0 || hasRole(u, roles...) || u.Role == models.RoleAdministrator {
+		return u, true
+	}
+	c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+	return u, false
+}
+
 func main() {
 	_ = godotenv.Load()
 
@@ -138,6 +156,9 @@ func main() {
 			"surname":             cur.Surname,
 			"name":                cur.Name,
 			"patronymic":          cur.Patronymic,
+			"birthday":            cur.Birthday,
+			"birth_place":         cur.BirthPlace,
+			"contact_email":       cur.ContactEmail,
 			"needs_second_part":   cur.NeedsSecondPart,
 			"second_part_created": cur.SecondPartCreated,
 			"second_part":         sp,
@@ -183,10 +204,14 @@ func main() {
 
 	// POST создать draft 2-й части (prefill + опциональные data/risk)
 	api.Post("/clients/:id/second-part", func(c *fiber.Ctx) error {
-		u, ok := canMutate(c)
+		u, ok := requireRoles(c, models.RoleClientManagement, models.RolePodft)
 		if !ok {
 			return nil
 		}
+		// u, ok := canMutate(c)
+		// if !ok {
+		// 	return nil
+		// }
 		id, _ := strconv.Atoi(c.Params("id"))
 		var in struct {
 			RiskLevel string         `json:"risk_level"` // low|high
@@ -507,6 +532,119 @@ func main() {
 			return c.Status(500).JSON(fiber.Map{"error": "list checks: " + err.Error()})
 		}
 		return c.JSON(fiber.Map{"success": true, "checks": xs})
+	})
+
+	api.Post("/auth/register", func(c *fiber.Ctx) error {
+		_, ok := requireRoles(c, models.RoleAdministrator)
+		if !ok {
+			return nil
+		}
+
+		var in struct {
+			Email string `json:"email"`
+			Role  string `json:"role"`
+			Token string `json:"token,omitempty"`
+		}
+
+		if err := c.BodyParser(&in); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "invalid json"})
+		}
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		u, err := db.CreateAppUser(gdb, in.Email, in.Role, in.Token)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{
+			"id": u.ID, "email": u.Email, "role": u.Role, "token": u.Token,
+		})
+	})
+
+	// Админ: список пользователей
+	api.Get("/auth/users", func(c *fiber.Ctx) error {
+		_, ok := requireRoles(c, models.RoleAdministrator)
+		if !ok {
+			return nil
+		}
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		xs, err := db.ListAppUsers(gdb)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "list: " + err.Error()})
+		}
+		return c.JSON(fiber.Map{"success": true, "users": xs})
+	})
+
+	// Админ: смена роли
+	api.Patch("/auth/users/:id/role", func(c *fiber.Ctx) error {
+		_, ok := requireRoles(c, models.RoleAdministrator)
+		if !ok {
+			return nil
+		}
+		uid64, err := strconv.ParseUint(c.Params("id"), 10, 64)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "invalid id"})
+		}
+		var in struct {
+			Role string `json:"role"`
+		}
+		if err := c.BodyParser(&in); err != nil || strings.TrimSpace(in.Role) == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "role required"})
+		}
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		u, err := db.UpdateUserRole(gdb, uint(uid64), in.Role)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(u)
+	})
+
+	// Админ: ротация токена
+	api.Post("/auth/users/:id/rotate-token", func(c *fiber.Ctx) error {
+		_, ok := requireRoles(c, models.RoleAdministrator)
+		if !ok {
+			return nil
+		}
+		uid64, err := strconv.ParseUint(c.Params("id"), 10, 64)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "invalid id"})
+		}
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		u, err := db.RotateUserToken(gdb, uint(uid64))
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(u)
+	})
+
+	// Админ: удаление пользователя
+	api.Delete("/auth/users/:id", func(c *fiber.Ctx) error {
+		_, ok := requireRoles(c, models.RoleAdministrator)
+		if !ok {
+			return nil
+		}
+		uid64, err := strconv.ParseUint(c.Params("id"), 10, 64)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "invalid id"})
+		}
+		gdb, err := db.Connect()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
+		}
+		if err := db.DeleteAppUser(gdb, uint(uid64)); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"success": true})
 	})
 
 	port := os.Getenv("PORT")

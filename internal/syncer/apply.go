@@ -65,6 +65,9 @@ func ApplyUsersBatch(gdb *gorm.DB, raws []json.RawMessage) (ApplyStats, error) {
 			name := extractString(m, "name")
 			surname := extractString(m, "surname")
 			patronymic := extractString(m, "patronymic")
+			birthday := extractString(m, "birthday")
+			birthPlace := extractString(m, "birth_place")
+			contactEmail := extractString(m, "contact_email")
 
 			if err == gorm.ErrRecordNotFound {
 				nv := models.ClientVersion{
@@ -73,6 +76,9 @@ func ApplyUsersBatch(gdb *gorm.DB, raws []json.RawMessage) (ApplyStats, error) {
 					Surname:               surname,
 					Name:                  name,
 					Patronymic:            patronymic,
+					Birthday:              birthday,
+					BirthPlace:            birthPlace,
+					ContactEmail:          contactEmail,
 					ExternalRiskLevel:     externalRisk,
 					SecondPartTriggerHash: triggerHash,
 					NeedsSecondPart:       true,
@@ -117,6 +123,9 @@ func ApplyUsersBatch(gdb *gorm.DB, raws []json.RawMessage) (ApplyStats, error) {
 				Surname:               surname,
 				Name:                  name,
 				Patronymic:            patronymic,
+				Birthday:              birthday,
+				BirthPlace:            birthPlace,
+				ContactEmail:          contactEmail,
 				ExternalRiskLevel:     externalRisk,
 				SecondPartTriggerHash: triggerHash,
 				NeedsSecondPart:       true,
