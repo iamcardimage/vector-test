@@ -434,9 +434,9 @@ func GetUserByToken(gdb *gorm.DB, token string) (models.AppUser, error) {
 // Сиды (dev): создаём примеров пользователей
 func SeedAppUsers(gdb *gorm.DB) error {
 	users := []models.AppUser{
-		{Email: "admin@example.com", Role: "admin", Token: "admin-token"},
-		{Email: "staff@example.com", Role: "staff", Token: "staff-token"},
-		{Email: "viewer@example.com", Role: "viewer", Token: "viewer-token"},
+		{Email: "admin@vector.com", Role: models.RoleAdministrator, Token: "admin-token"},
+		{Email: "podft@vector.com", Role: models.RolePodft, Token: "podft-token"},
+		{Email: "cm@vector.com", Role: models.RoleClientManagement, Token: "cm-token"},
 	}
 	for _, u := range users {
 		var existing models.AppUser

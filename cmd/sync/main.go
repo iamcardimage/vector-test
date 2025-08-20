@@ -148,6 +148,7 @@ func main() {
 			"total":   resp.TotalCount,
 		})
 	})
+
 	app.Post("/migrate/staging", func(c *fiber.Ctx) error {
 		gdb, err := db.Connect()
 		if err != nil {
