@@ -2,7 +2,6 @@ package db
 
 import "gorm.io/gorm"
 
-// RecalcNeedsSecondPart: due_at просрочен или 2-я часть не к текущей версии клиента
 func RecalcNeedsSecondPart(gdb *gorm.DB) (int64, error) {
 	res := gdb.Exec(`
 		UPDATE core.clients_versions AS c
@@ -20,8 +19,6 @@ func RecalcNeedsSecondPart(gdb *gorm.DB) (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
-// RecalcPassportExpiry: по дате рождения клиент переходит порог 20 или 45 лет → нужна 2-я часть
-// День рождения парсим из c.raw (jsonb): raw->>'birthday' или raw->'person_info'->>'birthday' в формате DD.MM.YYYY
 func RecalcPassportExpiry(gdb *gorm.DB) (int64, error) {
 	res := gdb.Exec(`
 		WITH birthdays AS (

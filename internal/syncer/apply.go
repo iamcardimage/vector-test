@@ -37,8 +37,6 @@ type ApplyStats struct {
 	Unchanged int
 }
 
-// ApplyUsersBatch: для каждого raw создаёт новую версию, если изменился SecondPartTriggerHash.
-// Не архивируем отсутствующих — только изменения.
 func ApplyUsersBatch(gdb *gorm.DB, raws []json.RawMessage) (ApplyStats, error) {
 	stats := ApplyStats{}
 	now := time.Now().UTC()

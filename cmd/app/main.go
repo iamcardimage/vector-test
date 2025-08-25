@@ -21,7 +21,6 @@ func asIntPtr(u uint) *int {
 	return &i
 }
 
-// Ролевые хелперы
 func hasRole(u models.AppUser, roles ...string) bool {
 	for _, r := range roles {
 		if u.Role == r {
@@ -44,7 +43,6 @@ func main() {
 
 	app := fiber.New()
 
-	// Auth middleware (Bearer <token>)
 	authmw := func(c *fiber.Ctx) error {
 		auth := c.Get("Authorization")
 		if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
@@ -63,7 +61,6 @@ func main() {
 		return c.Next()
 	}
 
-	// Публичные маршруты (health, миграции)
 	app.Get("/healthz", func(c *fiber.Ctx) error {
 		return c.SendString("ok")
 	})
@@ -81,51 +78,9 @@ func main() {
 		}
 		return c.SendString("db ok")
 	})
-	app.Post("/migrate/app/second-part", func(c *fiber.Ctx) error {
-		gdb, err := db.Connect()
-		if err != nil {
-			return c.Status(500).SendString("db connect error: " + err.Error())
-		}
-		if err := db.MigrateCoreSecondPart(gdb); err != nil {
-			return c.Status(500).SendString("migrate second_part error: " + err.Error())
-		}
-		return c.SendString("migrated second_part")
-	})
-	app.Post("/migrate/app/checks", func(c *fiber.Ctx) error {
-		gdb, err := db.Connect()
-		if err != nil {
-			return c.Status(500).SendString("db connect error: " + err.Error())
-		}
-		if err := db.MigrateCoreChecks(gdb); err != nil {
-			return c.Status(500).SendString("migrate checks error: " + err.Error())
-		}
-		return c.SendString("migrated checks")
-	})
-	app.Post("/migrate/app/users", func(c *fiber.Ctx) error {
-		gdb, err := db.Connect()
-		if err != nil {
-			return c.Status(500).SendString("db connect error: " + err.Error())
-		}
-		if err := db.MigrateCoreUsers(gdb); err != nil {
-			return c.Status(500).SendString("migrate users error: " + err.Error())
-		}
-		return c.SendString("migrated users")
-	})
-	app.Post("/migrate/app/seed-users", func(c *fiber.Ctx) error {
-		gdb, err := db.Connect()
-		if err != nil {
-			return c.Status(500).SendString("db connect error: " + err.Error())
-		}
-		if err := db.SeedAppUsers(gdb); err != nil {
-			return c.Status(500).SendString("seed error: " + err.Error())
-		}
-		return c.SendString("seeded users")
-	})
 
-	// Защищённая группа (Bearer)
 	api := app.Group("/", authmw)
 
-	// GET текущий клиент + текущая 2-я часть
 	api.Get("/clients/:id", func(c *fiber.Ctx) error {
 		id, _ := strconv.Atoi(c.Params("id"))
 		gdb, err := db.Connect()
@@ -175,7 +130,6 @@ func main() {
 		})
 	})
 
-	// GET история 2-й части
 	api.Get("/clients/:id/second-part/history", func(c *fiber.Ctx) error {
 		id, _ := strconv.Atoi(c.Params("id"))
 		gdb, err := db.Connect()
@@ -202,7 +156,6 @@ func main() {
 		return c.JSON(fiber.Map{"success": true, "versions": out})
 	})
 
-	// Helper: запретить мутации для viewer
 	canMutate := func(c *fiber.Ctx) (models.AppUser, bool) {
 		u := c.Locals("user").(models.AppUser)
 		if u.Role == "viewer" {
@@ -212,16 +165,12 @@ func main() {
 		return u, true
 	}
 
-	// POST создать draft 2-й части (prefill + опциональные data/risk)
 	api.Post("/clients/:id/second-part", func(c *fiber.Ctx) error {
 		u, ok := requireRoles(c, models.RoleClientManagement, models.RolePodft)
 		if !ok {
 			return nil
 		}
-		// u, ok := canMutate(c)
-		// if !ok {
-		// 	return nil
-		// }
+
 		id, _ := strconv.Atoi(c.Params("id"))
 		var in struct {
 			RiskLevel string         `json:"risk_level"` // low|high
@@ -247,7 +196,6 @@ func main() {
 		return c.JSON(sp)
 	})
 
-	// POST submit 2-й части
 	api.Post("/clients/:id/second-part/submit", func(c *fiber.Ctx) error {
 		u, ok := canMutate(c)
 		if !ok {
@@ -265,7 +213,6 @@ func main() {
 		return c.JSON(sp)
 	})
 
-	// POST approve 2-й части
 	api.Post("/clients/:id/second-part/approve", func(c *fiber.Ctx) error {
 		u, ok := canMutate(c)
 		if !ok {
@@ -283,7 +230,6 @@ func main() {
 		return c.JSON(sp)
 	})
 
-	// POST reject 2-й части
 	api.Post("/clients/:id/second-part/reject", func(c *fiber.Ctx) error {
 		u, ok := canMutate(c)
 		if !ok {
@@ -307,7 +253,6 @@ func main() {
 		return c.JSON(sp)
 	})
 
-	// POST запрос документов
 	api.Post("/clients/:id/second-part/request-docs", func(c *fiber.Ctx) error {
 		u, ok := canMutate(c)
 		if !ok {
@@ -393,7 +338,6 @@ func main() {
 			return c.Status(500).JSON(fiber.Map{"error": "list: " + err.Error()})
 		}
 
-		// пометить устаревшую 2-ю часть, если client_version != sp_client_version
 		type Row struct {
 			db.ClientWithSP
 			Stale *bool `json:"stale,omitempty"`
@@ -439,7 +383,6 @@ func main() {
 		})
 	})
 
-	// Создать pending-проверку (kind обязателен). Если sp_version не передан — используем текущую 2-ю часть.
 	api.Post("/clients/:id/second-part/checks", func(c *fiber.Ctx) error {
 		u := c.Locals("user").(models.AppUser)
 		if u.Role == "viewer" {
@@ -460,7 +403,6 @@ func main() {
 			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
 		}
 
-		// определить sp_version
 		spVer := 0
 		if in.SpVersion != nil {
 			spVer = *in.SpVersion
@@ -486,19 +428,18 @@ func main() {
 		return c.JSON(ch)
 	})
 
-	// Обновить результат проверки
 	api.Patch("/clients/:id/second-part/checks/:check_id", func(c *fiber.Ctx) error {
 		u := c.Locals("user").(models.AppUser)
 		if u.Role == "viewer" {
 			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 		}
-		_, _ = strconv.Atoi(c.Params("id")) // зарезервировано на будущее валидации соответствия clientID
+		_, _ = strconv.Atoi(c.Params("id"))
 		chID64, err := strconv.ParseUint(c.Params("check_id"), 10, 64)
 		if err != nil {
 			return c.Status(400).JSON(fiber.Map{"error": "invalid check_id"})
 		}
 		var in struct {
-			Status string         `json:"status"` // passed|failed
+			Status string         `json:"status"`
 			Result map[string]any `json:"result"`
 		}
 		if err := c.BodyParser(&in); err != nil || (in.Status != "passed" && in.Status != "failed") {
@@ -522,7 +463,6 @@ func main() {
 		return c.JSON(ch)
 	})
 
-	// Список проверок
 	api.Get("/clients/:id/second-part/checks", func(c *fiber.Ctx) error {
 		id, _ := strconv.Atoi(c.Params("id"))
 		var spvPtr *int
@@ -572,7 +512,6 @@ func main() {
 		})
 	})
 
-	// Админ: список пользователей
 	api.Get("/auth/users", func(c *fiber.Ctx) error {
 		_, ok := requireRoles(c, models.RoleAdministrator)
 		if !ok {
@@ -589,7 +528,6 @@ func main() {
 		return c.JSON(fiber.Map{"success": true, "users": xs})
 	})
 
-	// Админ: смена роли
 	api.Patch("/auth/users/:id/role", func(c *fiber.Ctx) error {
 		_, ok := requireRoles(c, models.RoleAdministrator)
 		if !ok {
@@ -616,7 +554,6 @@ func main() {
 		return c.JSON(u)
 	})
 
-	// Админ: ротация токена
 	api.Post("/auth/users/:id/rotate-token", func(c *fiber.Ctx) error {
 		_, ok := requireRoles(c, models.RoleAdministrator)
 		if !ok {
@@ -637,7 +574,6 @@ func main() {
 		return c.JSON(u)
 	})
 
-	// Админ: удаление пользователя
 	api.Delete("/auth/users/:id", func(c *fiber.Ctx) error {
 		_, ok := requireRoles(c, models.RoleAdministrator)
 		if !ok {

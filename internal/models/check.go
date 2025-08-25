@@ -10,7 +10,7 @@ type SecondPartCheck struct {
 	ID                uint           `gorm:"primaryKey"`
 	ClientID          int            `gorm:"not null;index"`
 	SecondPartVersion int            `gorm:"not null;index"`     // к какой версии 2-й части относится
-	Kind              string         `gorm:"type:text;not null"` // тип проверки (например, "passport", "risk", ...)
+	Kind              string         `gorm:"type:text;not null"` // тип проверки ("passport", "risk", ...)
 	Status            string         `gorm:"type:text;not null"` // pending|passed|failed
 	Payload           datatypes.JSON `gorm:"type:jsonb"`         // входные параметры/контекст
 	Result            datatypes.JSON `gorm:"type:jsonb"`         // результат внешней проверки

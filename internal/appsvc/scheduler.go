@@ -14,7 +14,7 @@ import (
 func StartCron() (*cron.Cron, error) {
 	spec := os.Getenv("APP_CRON")
 	if spec == "" {
-		spec = "0 4 * * *" // ежедневно в 04:00
+		spec = "0 4 * * *"
 	}
 	c := cron.New()
 	_, err := c.AddFunc(spec, func() {
@@ -26,7 +26,7 @@ func StartCron() (*cron.Cron, error) {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		_ = ctx // при необходимости — использовать в запросах
+		_ = ctx
 		n, err := db.RecalcNeedsSecondPart(gdb)
 		n2, err2 := db.RecalcPassportExpiry(gdb)
 		if err2 != nil {

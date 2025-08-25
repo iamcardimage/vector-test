@@ -73,19 +73,6 @@ func getenv(key, def string) string {
 	}
 	return def
 }
-func MigrateExternal(gdb *gorm.DB) error {
-	return gdb.AutoMigrate(&models.ExternalUser{})
-}
-
-func UpsertExternalUsers(gdb *gorm.DB, items []models.ExternalUser) error {
-	if len(items) == 0 {
-		return nil
-	}
-	return gdb.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"surname", "name", "patronymic", "updated_at"}),
-	}).Create(&items).Error
-}
 
 func MigrateStaging(gdb *gorm.DB) error {
 	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS staging").Error; err != nil {
@@ -200,7 +187,7 @@ func MigrateCoreSecondPart(gdb *gorm.DB) error {
 	if err := gdb.AutoMigrate(&models.SecondPartVersion{}); err != nil {
 		return err
 	}
-	// Один текущий на клиента
+
 	if err := gdb.Exec(`
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_second_part_current
 		ON core.second_part_versions (client_id)
@@ -208,7 +195,7 @@ func MigrateCoreSecondPart(gdb *gorm.DB) error {
 	`).Error; err != nil {
 		return err
 	}
-	// Ускорить выборку “актуальная 2-я часть на текущей версии клиента”
+
 	return gdb.Exec(`
 		CREATE INDEX IF NOT EXISTS idx_sp_client_version_current
 		ON core.second_part_versions (client_id, client_version)
@@ -216,28 +203,24 @@ func MigrateCoreSecondPart(gdb *gorm.DB) error {
 	`).Error
 }
 
-// Текущая версия клиента
 func GetClientCurrent(gdb *gorm.DB, id int) (models.ClientVersion, error) {
 	var v models.ClientVersion
 	err := gdb.Where("client_id = ? AND is_current = true", id).Take(&v).Error
 	return v, err
 }
 
-// Текущая 2-я часть
 func GetSecondPartCurrent(gdb *gorm.DB, id int) (models.SecondPartVersion, error) {
 	var sp models.SecondPartVersion
 	err := gdb.Where("client_id = ? AND is_current = true", id).Take(&sp).Error
 	return sp, err
 }
 
-// История 2-й части
 func ListSecondPartHistory(gdb *gorm.DB, id int) ([]models.SecondPartVersion, error) {
 	var vs []models.SecondPartVersion
 	err := gdb.Where("client_id = ?", id).Order("version ASC").Find(&vs).Error
 	return vs, err
 }
 
-// Создать draft 2-й части (SCD2) с префиллом и, опционально, override Data и risk
 func CreateSecondPartDraft(
 	gdb *gorm.DB,
 	clientID int,
@@ -249,20 +232,18 @@ func CreateSecondPartDraft(
 	var out models.SecondPartVersion
 
 	err := gdb.Transaction(func(tx *gorm.DB) error {
-		// текущий клиент
+
 		curClient, err := GetClientCurrent(tx, clientID)
 		if err != nil {
 			return err
 		}
 
-		// текущая 2-я часть
 		var curSP models.SecondPartVersion
 		err = tx.Where("client_id = ? AND is_current = true", clientID).Take(&curSP).Error
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
 
-		// закрыть текущую 2-ю часть, если была
 		nextVersion := 1
 		prefill := datatypes.JSON([]byte(`{}`))
 		if err == nil {
@@ -278,13 +259,11 @@ func CreateSecondPartDraft(
 			}
 		}
 
-		// итоговый Data: override > префилл
 		data := prefill
 		if dataOverride != nil {
 			data = *dataOverride
 		}
 
-		// расчет due_at по risk
 		var dueAt *time.Time
 		var risk string
 		if riskLevel != nil && *riskLevel != "" {
@@ -318,7 +297,6 @@ func CreateSecondPartDraft(
 			return err
 		}
 
-		// пометить у клиента, что 2-я часть создана
 		if err := tx.Model(&models.ClientVersion{}).
 			Where("client_id = ? AND is_current = true", clientID).
 			Update("second_part_created", true).Error; err != nil {
@@ -331,8 +309,6 @@ func CreateSecondPartDraft(
 	return out, err
 }
 
-// Создать новую версию 2-й части с новым статусом (SCD2), копируя данные из текущей.
-// Если текущей 2-й части нет — сначала создаём draft.
 func TransitionSecondPartStatus(
 	gdb *gorm.DB,
 	clientID int,
@@ -344,13 +320,12 @@ func TransitionSecondPartStatus(
 	var out models.SecondPartVersion
 
 	err := gdb.Transaction(func(tx *gorm.DB) error {
-		// Текущий клиент
+
 		curClient, err := GetClientCurrent(tx, clientID)
 		if err != nil {
 			return err
 		}
 
-		// Текущая 2-я часть (если нет — создадим draft)
 		var curSP models.SecondPartVersion
 		err = tx.Where("client_id = ? AND is_current = true", clientID).Take(&curSP).Error
 		if err == gorm.ErrRecordNotFound {
@@ -363,7 +338,6 @@ func TransitionSecondPartStatus(
 			return err
 		}
 
-		// Закрываем текущую
 		if err := tx.Model(&models.SecondPartVersion{}).
 			Where("client_id = ? AND is_current = true", clientID).
 			Updates(map[string]any{
@@ -373,7 +347,6 @@ func TransitionSecondPartStatus(
 			return err
 		}
 
-		// База для новой версии
 		next := models.SecondPartVersion{
 			ClientID:      clientID,
 			ClientVersion: curClient.Version,
@@ -387,7 +360,6 @@ func TransitionSecondPartStatus(
 			Reason:        "",
 		}
 
-		// Пересчёт due_at при approve
 		if newStatus == "approved" {
 			years := 1
 			if strings.ToLower(curSP.RiskLevel) == "low" {
@@ -396,7 +368,6 @@ func TransitionSecondPartStatus(
 			t := now.AddDate(years, 0, 0)
 			next.DueAt = &t
 
-			// Снять флаг "нужна 2-я часть" у текущего клиента
 			if err := tx.Model(&models.ClientVersion{}).
 				Where("client_id = ? AND is_current = true", clientID).
 				Update("needs_second_part", false).Error; err != nil {
@@ -404,7 +375,6 @@ func TransitionSecondPartStatus(
 			}
 		}
 
-		// Акторы/причина
 		if actorID != nil {
 			if newStatus == "approved" {
 				next.ApprovedByUserID = actorID
@@ -443,7 +413,6 @@ func RequestDocsSecondPart(gdb *gorm.DB, clientID int, userID *int, reason strin
 	return TransitionSecondPartStatus(gdb, clientID, "doc_requested", userID, &reason)
 }
 
-// Миграция таблицы пользователей
 func MigrateCoreUsers(gdb *gorm.DB) error {
 	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
 		return err
@@ -451,14 +420,12 @@ func MigrateCoreUsers(gdb *gorm.DB) error {
 	return gdb.AutoMigrate(&models.AppUser{})
 }
 
-// Поиск пользователя по Bearer-токену
 func GetUserByToken(gdb *gorm.DB, token string) (models.AppUser, error) {
 	var u models.AppUser
 	err := gdb.Where("token = ?", token).Take(&u).Error
 	return u, err
 }
 
-// Сиды (dev): создаём примеров пользователей
 func SeedAppUsers(gdb *gorm.DB) error {
 	users := []models.AppUser{
 		{Email: "admin@vector.com", Role: models.RoleAdministrator, Token: "admin-token"},
@@ -535,7 +502,6 @@ func ListClientsWithSP(
 		base = base.Where("sp.due_at IS NOT NULL AND sp.due_at <= ?", *dueBefore)
 	}
 
-	// count
 	if err = gdb.Table("(?) AS sub", base.Session(&gorm.Session{NewDB: true})).Count(&total).Error; err != nil {
 		return
 	}
@@ -548,7 +514,6 @@ func ListClientsWithSP(
 	return
 }
 
-// Миграция таблицы checks
 func MigrateCoreChecks(gdb *gorm.DB) error {
 	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
 		return err
@@ -556,7 +521,6 @@ func MigrateCoreChecks(gdb *gorm.DB) error {
 	return gdb.AutoMigrate(&models.SecondPartCheck{})
 }
 
-// Создать pending-проверку
 func CreateSecondPartCheck(gdb *gorm.DB, clientID, spVersion int, kind string, payload *datatypes.JSON, runBy *int) (models.SecondPartCheck, error) {
 	ch := models.SecondPartCheck{
 		ClientID:          clientID,
@@ -573,7 +537,6 @@ func CreateSecondPartCheck(gdb *gorm.DB, clientID, spVersion int, kind string, p
 	return ch, gdb.Create(&ch).Error
 }
 
-// Обновить результат проверки
 func UpdateSecondPartCheckResult(gdb *gorm.DB, checkID uint, status string, result *datatypes.JSON) (models.SecondPartCheck, error) {
 	var ch models.SecondPartCheck
 	if err := gdb.Where("id = ?", checkID).Take(&ch).Error; err != nil {
@@ -588,7 +551,6 @@ func UpdateSecondPartCheckResult(gdb *gorm.DB, checkID uint, status string, resu
 	return ch, gdb.Save(&ch).Error
 }
 
-// Список проверок по клиенту (опционально по версии 2-й части)
 func ListSecondPartChecks(gdb *gorm.DB, clientID int, spVersion *int) ([]models.SecondPartCheck, error) {
 	var xs []models.SecondPartCheck
 	q := gdb.Where("client_id = ?", clientID)
@@ -645,7 +607,6 @@ func UpdateUserRole(gdb *gorm.DB, id uint, role string) (models.AppUser, error) 
 	return u, gdb.Save(&u).Error
 }
 
-// Ротировать (пересоздать) токен
 func RotateUserToken(gdb *gorm.DB, id uint) (models.AppUser, error) {
 	var u models.AppUser
 	if err := gdb.First(&u, id).Error; err != nil {
@@ -655,7 +616,6 @@ func RotateUserToken(gdb *gorm.DB, id uint) (models.AppUser, error) {
 	return u, gdb.Save(&u).Error
 }
 
-// Удалить пользователя
 func DeleteAppUser(gdb *gorm.DB, id uint) error {
 	return gdb.Delete(&models.AppUser{}, id).Error
 }
