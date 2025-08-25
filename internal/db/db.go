@@ -158,29 +158,6 @@ func ListCurrentClients(gdb *gorm.DB, page, perPage int, needsSecondPart *bool) 
 	return
 }
 
-func MigrateCoreSecondPart(gdb *gorm.DB) error {
-	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
-		return err
-	}
-	if err := gdb.AutoMigrate(&models.SecondPartVersion{}); err != nil {
-		return err
-	}
-
-	if err := gdb.Exec(`
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_second_part_current
-		ON core.second_part_versions (client_id)
-		WHERE is_current = true
-	`).Error; err != nil {
-		return err
-	}
-
-	return gdb.Exec(`
-		CREATE INDEX IF NOT EXISTS idx_sp_client_version_current
-		ON core.second_part_versions (client_id, client_version)
-		WHERE is_current = true
-	`).Error
-}
-
 func GetClientCurrent(gdb *gorm.DB, id int) (models.ClientVersion, error) {
 	var v models.ClientVersion
 	err := gdb.Where("client_id = ? AND is_current = true", id).Take(&v).Error
@@ -391,13 +368,6 @@ func RequestDocsSecondPart(gdb *gorm.DB, clientID int, userID *int, reason strin
 	return TransitionSecondPartStatus(gdb, clientID, "doc_requested", userID, &reason)
 }
 
-func MigrateCoreUsers(gdb *gorm.DB) error {
-	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
-		return err
-	}
-	return gdb.AutoMigrate(&models.AppUser{})
-}
-
 func GetUserByToken(gdb *gorm.DB, token string) (models.AppUser, error) {
 	var u models.AppUser
 	err := gdb.Where("token = ?", token).Take(&u).Error
@@ -490,13 +460,6 @@ func ListClientsWithSP(
 		Offset(offset).
 		Scan(&items).Error
 	return
-}
-
-func MigrateCoreChecks(gdb *gorm.DB) error {
-	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
-		return err
-	}
-	return gdb.AutoMigrate(&models.SecondPartCheck{})
 }
 
 func CreateSecondPartCheck(gdb *gorm.DB, clientID, spVersion int, kind string, payload *datatypes.JSON, runBy *int) (models.SecondPartCheck, error) {

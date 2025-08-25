@@ -2,28 +2,25 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"strconv"
 	"time"
 
+	"vector/internal/cron"
 	"vector/internal/db"
 	"vector/internal/external"
-	"vector/internal/models"
 	"vector/internal/repository"
 	"vector/internal/service"
-	"vector/internal/syncer"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
-	"gorm.io/datatypes"
 )
 
 func main() {
 
 	_ = godotenv.Load()
 
-	_, _ = syncer.StartCron()
+	_, _ = cron.StartCron()
 
 	gdb, err := db.Connect()
 	if err != nil {
@@ -31,9 +28,12 @@ func main() {
 	}
 
 	stagingRepo := repository.NewStagingRepository(gdb)
+	clientRepo := repository.NewClientRepository(gdb)
 	externalClient := external.NewClient()
 	externalApi := repository.NewExternalAPIClient(externalClient)
 	stagingService := service.NewStagingService(stagingRepo, externalApi)
+	applyService := service.NewApplyService(stagingRepo, clientRepo, externalApi, gdb)
+	fullSyncService := service.NewFullSyncService(applyService, externalApi)
 
 	app := fiber.New()
 
@@ -91,88 +91,34 @@ func main() {
 			perPage = 100
 		}
 
-		client := external.NewClient()
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		rawResp, err := client.GetUsersRaw(ctx, page, perPage)
+		resp, err := applyService.SyncApply(ctx, service.SyncApplyRequest{
+			Page:    page,
+			PerPage: perPage,
+		})
 		if err != nil {
 			return c.Status(502).JSON(fiber.Map{"error": err.Error()})
 		}
 
-		now := time.Now().UTC()
-		batch := make([]models.StagingExternalUser, 0, len(rawResp.Users))
-		for _, r := range rawResp.Users {
-			var tmp map[string]any
-			if err := json.Unmarshal(r, &tmp); err != nil {
-				return c.Status(500).JSON(fiber.Map{"error": "decode raw user: " + err.Error()})
-			}
-			idVal, ok := tmp["id"]
-			if !ok {
-				continue
-			}
-			idFloat, ok := idVal.(float64)
-			if !ok {
-				continue
-			}
-			batch = append(batch, models.StagingExternalUser{
-				ID:       int(idFloat),
-				Raw:      datatypes.JSON(r),
-				SyncedAt: now,
-			})
-		}
-
-		gdb, err := db.Connect()
-		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
-		}
-		if err := db.UpsertStagingExternalUsers(gdb, batch); err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "staging upsert: " + err.Error()})
-		}
-
-		st, err := syncer.ApplyUsersBatch(gdb, rawResp.Users)
-		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "apply batch: " + err.Error()})
-		}
-		return c.JSON(fiber.Map{
-			"success":     true,
-			"applied":     len(batch),
-			"created":     st.Created,
-			"updated":     st.Updated,
-			"unchanged":   st.Unchanged,
-			"page":        rawResp.CurrentPage,
-			"total_pages": rawResp.TotalPages,
-			"total_count": rawResp.TotalCount,
-			"per_page":    rawResp.PerPage,
-		})
+		return c.JSON(resp)
 	})
 
 	app.Post("/sync/full", func(c *fiber.Ctx) error {
 		perPage, _ := strconv.Atoi(c.Query("per_page", "100"))
 
-		client := external.NewClient()
-		gdb, err := db.Connect()
-		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
 		defer cancel()
 
-		stats, err := syncer.FullSync(ctx, gdb, client, perPage, 30*time.Second)
+		resp, err := fullSyncService.SyncFull(ctx, service.FullSyncRequest{
+			PerPage: perPage,
+		})
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "full sync: " + err.Error()})
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}
 
-		return c.JSON(fiber.Map{
-			"success":   true,
-			"pages":     stats.Pages,
-			"saved":     stats.Saved,
-			"applied":   stats.Applied,
-			"created":   stats.Created,
-			"updated":   stats.Updated,
-			"unchanged": stats.Unchanged,
-		})
+		return c.JSON(resp)
 	})
 
 	if err := app.Listen(":8080"); err != nil {

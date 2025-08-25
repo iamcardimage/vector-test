@@ -1,4 +1,4 @@
-package syncer
+package cron
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 
 	"vector/internal/db"
 	"vector/internal/external"
+	"vector/internal/repository"
+	"vector/internal/service"
 )
 
 func StartCron() (*cron.Cron, error) {
@@ -32,23 +34,33 @@ func StartCron() (*cron.Cron, error) {
 		start := time.Now()
 		log.Printf("[cron] full sync start (per_page=%d)", perPage)
 
+		// Инициализируем сервисы
 		gdb, err := db.Connect()
 		if err != nil {
 			log.Printf("[cron] db connect error: %v", err)
 			return
 		}
 
-		client := external.NewClient()
+		stagingRepo := repository.NewStagingRepository(gdb)
+		clientRepo := repository.NewClientRepository(gdb)
+		externalClient := external.NewClient()
+		externalAPI := repository.NewExternalAPIClient(externalClient)
+		applyService := service.NewApplyService(stagingRepo, clientRepo, externalAPI, gdb)
+		fullSyncService := service.NewFullSyncService(applyService, externalAPI)
+
 		ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
 		defer cancel()
 
-		stats, err := FullSync(ctx, gdb, client, perPage, 30*time.Second)
+		resp, err := fullSyncService.SyncFull(ctx, service.FullSyncRequest{
+			PerPage: perPage,
+		})
 		if err != nil {
 			log.Printf("[cron] full sync error: %v", err)
 			return
 		}
+
 		log.Printf("[cron] full sync done in %s pages=%d saved=%d applied=%d created=%d updated=%d unchanged=%d",
-			time.Since(start), stats.Pages, stats.Saved, stats.Applied, stats.Created, stats.Updated, stats.Unchanged)
+			time.Since(start), resp.Pages, resp.Saved, resp.Applied, resp.Created, resp.Updated, resp.Unchanged)
 	})
 	if err != nil {
 		return nil, err

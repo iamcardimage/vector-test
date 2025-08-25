@@ -61,7 +61,6 @@ var triggerFields = []string{
 	"for_corresp_district",
 }
 
-// Пути к вложенным полям из блока addresses.*
 var nestedAddressPaths = map[string][]string{
 	"residential_country":  {"addresses", "residential", "country"},
 	"residential_index":    {"addresses", "residential", "index"},
@@ -84,7 +83,6 @@ var nestedAddressPaths = map[string][]string{
 	"for_corresp_district": {"addresses", "for_corresp", "district"},
 }
 
-// Получить строковое значение из произвольного типа
 func toString(v any) string {
 	switch t := v.(type) {
 	case nil:
@@ -97,8 +95,7 @@ func toString(v any) string {
 		}
 		return "false"
 	case float64:
-		// JSON числа приходят как float64
-		// Превращаем без дробной части, если целое
+
 		if t == float64(int64(t)) {
 			return strconv.FormatInt(int64(t), 10)
 		}
@@ -123,9 +120,6 @@ func getByPath(m map[string]any, path []string) (any, bool) {
 	return cur, true
 }
 
-// ComputeSecondPartTriggerHash строит стабильную строку key=value|... по списку триггер-полей
-// с учётом вложенных адресов и возможного дублирования в person_info,
-// и хэширует её sha256 -> hex. Если поля нет — считаем пустым.
 func ComputeSecondPartTriggerHash(raw []byte) (string, error) {
 	var m map[string]any
 	if err := json.Unmarshal(raw, &m); err != nil {
@@ -139,34 +133,29 @@ func ComputeSecondPartTriggerHash(raw []byte) (string, error) {
 			ok  bool
 		)
 
-		// 1) Вложенные адреса по карте путей
 		if path, has := nestedAddressPaths[key]; has {
 			if v, okp := getByPath(m, path); okp {
 				val, ok = v, true
 			}
 		}
 
-		// 2) Плоское поле верхнего уровня
 		if !ok {
 			if v, okTop := m[key]; okTop {
 				val, ok = v, true
 			}
 		}
 
-		// 3) Дубль внутри person_info.{key} (много полей там)
 		if !ok {
 			if v, okPI := getByPath(m, []string{"person_info", key}); okPI {
 				val, ok = v, true
 			}
 		}
 
-		// Нормализуем к строке
 		s := ""
 		if ok {
 			s = toString(val)
 		}
 
-		// Конкатенация с ключом для стабильности
 		b.WriteString(key)
 		b.WriteString("=")
 		b.WriteString(s)
@@ -177,17 +166,16 @@ func ComputeSecondPartTriggerHash(raw []byte) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-// Вытаскивает внешний риск (он НЕ равен риску из "второй части")
 func ExtractExternalRiskLevel(raw []byte) string {
 	var m map[string]any
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return ""
 	}
-	// обычно в корне
+
 	if v, ok := m["risk_level"]; ok {
 		return toString(v)
 	}
-	// запасной вариант: вдруг вложили куда-то
+
 	if v, ok := getByPath(m, []string{"person_info", "risk_level"}); ok {
 		return toString(v)
 	}

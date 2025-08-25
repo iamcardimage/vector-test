@@ -72,9 +72,9 @@ func (m *Migrator) MigrateCoreClients() error {
 }
 
 func (m *Migrator) MigrateCoreSecondPart() error {
-	log.Panicln("Migrating core second part tables...")
+	log.Println("Migrating core second part tables...")
 	if err := m.db.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
-		return nil
+		return err
 	}
 	if err := m.db.AutoMigrate(&models.SecondPartVersion{}); err != nil {
 		return err
@@ -105,7 +105,7 @@ func (m *Migrator) MigrateCoreUsers() error {
 func (m *Migrator) MigrateCoreChecks() error {
 	log.Println("Migrating core checks table...")
 	if err := m.db.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
-		return err
+		return nil
 	}
 	return m.db.AutoMigrate(&models.SecondPartCheck{})
 }
