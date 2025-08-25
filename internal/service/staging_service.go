@@ -48,7 +48,7 @@ func (s *StagingService) SyncStaging(ctx context.Context, req SyncStagingRequest
 	for _, r := range resp.Users {
 		id, err := extractUserID(r)
 		if err != nil {
-			continue // пропускаем невалидные записи
+			continue
 		}
 
 		batch = append(batch, models.StagingExternalUser{

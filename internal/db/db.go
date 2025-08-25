@@ -74,28 +74,6 @@ func getenv(key, def string) string {
 	return def
 }
 
-func MigrateStaging(gdb *gorm.DB) error {
-	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS staging").Error; err != nil {
-		return err
-	}
-	return gdb.AutoMigrate(&models.StagingExternalUser{})
-}
-
-func MigrateCoreClients(gdb *gorm.DB) error {
-	if err := gdb.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
-		return err
-	}
-	if err := gdb.AutoMigrate(&models.ClientVersion{}); err != nil {
-		return err
-	}
-	// Один текущий срез на клиента (частичный уникальный индекс)
-	return gdb.Exec(`
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_current
-		ON core.clients_versions (client_id)
-		WHERE is_current = true
-	`).Error
-}
-
 func UpsertStagingExternalUsers(gdb *gorm.DB, items []models.StagingExternalUser) error {
 	if len(items) == 0 {
 		return nil

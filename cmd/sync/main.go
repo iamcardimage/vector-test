@@ -10,6 +10,8 @@ import (
 	"vector/internal/db"
 	"vector/internal/external"
 	"vector/internal/models"
+	"vector/internal/repository"
+	"vector/internal/service"
 	"vector/internal/syncer"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,6 +24,16 @@ func main() {
 	_ = godotenv.Load()
 
 	_, _ = syncer.StartCron()
+
+	gdb, err := db.Connect()
+	if err != nil {
+		log.Fatal("Failed to connect to database", err)
+	}
+
+	stagingRepo := repository.NewStagingRepository(gdb)
+	externalClient := external.NewClient()
+	externalApi := repository.NewExternalAPIClient(externalClient)
+	stagingService := service.NewStagingService(stagingRepo, externalApi)
 
 	app := fiber.New()
 
@@ -54,55 +66,19 @@ func main() {
 			perPage = 100
 		}
 
-		client := external.NewClient()
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		rawResp, err := client.GetUsersRaw(ctx, page, perPage)
+		resp, err := stagingService.SyncStaging(ctx, service.SyncStagingRequest{
+			Page:    page,
+			PerPage: perPage,
+		})
 		if err != nil {
 			return c.Status(502).JSON(fiber.Map{"error": err.Error()})
 		}
 
-		now := time.Now().UTC()
-		batch := make([]models.StagingExternalUser, 0, len(rawResp.Users))
-		for _, r := range rawResp.Users {
-			// вытянуть id из raw
-			var tmp map[string]any
-			if err := json.Unmarshal(r, &tmp); err != nil {
-				return c.Status(500).JSON(fiber.Map{"error": "decode raw user: " + err.Error()})
-			}
-			idVal, ok := tmp["id"]
-			if !ok {
-				continue
-			}
-			id, ok := idVal.(float64)
-			if !ok {
-				continue
-			}
+		return c.JSON(resp)
 
-			batch = append(batch, models.StagingExternalUser{
-				ID:       int(id),
-				Raw:      datatypes.JSON(r),
-				SyncedAt: now,
-			})
-		}
-
-		gdb, err := db.Connect()
-		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "db connect: " + err.Error()})
-		}
-		if err := db.UpsertStagingExternalUsers(gdb, batch); err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "staging upsert: " + err.Error()})
-		}
-
-		return c.JSON(fiber.Map{
-			"success":     true,
-			"saved":       len(batch),
-			"page":        rawResp.CurrentPage,
-			"total_pages": rawResp.TotalPages,
-			"total_count": rawResp.TotalCount,
-			"per_page":    rawResp.PerPage,
-		})
 	})
 
 	app.Post("/sync/apply", func(c *fiber.Ctx) error {
