@@ -41,11 +41,17 @@ func StartCron() (*cron.Cron, error) {
 			return
 		}
 
+		// Repositories
 		stagingRepo := repository.NewStagingRepository(gdb)
 		clientRepo := repository.NewClientRepository(gdb)
+
+		// External client
 		externalClient := external.NewClient()
 		externalAPI := repository.NewExternalAPIClient(externalClient)
-		applyService := service.NewApplyService(stagingRepo, clientRepo, externalAPI, gdb)
+
+		// Services
+		triggerService := service.NewTriggerService()                                                      // ДОБАВЛЕНО
+		applyService := service.NewApplyService(stagingRepo, clientRepo, externalAPI, triggerService, gdb) // ОБНОВЛЕНО
 		fullSyncService := service.NewFullSyncService(applyService, externalAPI)
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Hour)

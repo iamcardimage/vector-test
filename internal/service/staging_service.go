@@ -2,10 +2,9 @@ package service
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"time"
 	"vector/internal/models"
+	"vector/internal/pkg/utils"
 	"vector/internal/repository"
 
 	"gorm.io/datatypes"
@@ -46,13 +45,13 @@ func (s *StagingService) SyncStaging(ctx context.Context, req SyncStagingRequest
 	batch := make([]models.StagingExternalUser, 0, len(resp.Users))
 
 	for _, r := range resp.Users {
-		id, err := extractUserID(r)
+		userID, err := utils.ExtractUserID(r)
 		if err != nil {
 			continue
 		}
 
 		batch = append(batch, models.StagingExternalUser{
-			ID:       id,
+			ID:       userID,
 			Raw:      datatypes.JSON(r),
 			SyncedAt: now,
 		})
@@ -70,24 +69,4 @@ func (s *StagingService) SyncStaging(ctx context.Context, req SyncStagingRequest
 		TotalCount: resp.TotalCount,
 		PerPage:    resp.PerPage,
 	}, nil
-}
-
-func extractUserID(raw json.RawMessage) (int, error) {
-	var tmp map[string]any
-	if err := json.Unmarshal(raw, &tmp); err != nil {
-		return 0, err
-	}
-	idVal, ok := tmp["id"]
-	if !ok {
-		return 0, errors.New("id field not found")
-	}
-	switch v := idVal.(type) {
-	case float64:
-		return int(v), nil
-	case int:
-		return v, nil
-	default:
-		return 0, errors.New("invalid id type")
-	}
-
 }
