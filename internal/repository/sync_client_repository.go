@@ -8,7 +8,6 @@ import (
 	"vector/internal/models"
 	"vector/internal/pkg/utils"
 
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -147,56 +146,19 @@ func (r *syncClientRepository) ApplyUsersBatch(ctx context.Context, users []Appl
 
 // Вспомогательный метод для построения ClientVersion
 func (r *syncClientRepository) buildClientVersion(userData ApplyUserData, m map[string]any, version int, now time.Time) models.ClientVersion {
-	// Извлекаем поля из JSON
-	name := utils.ExtractString(m, "name")
-	surname := utils.ExtractString(m, "surname")
-	patronymic := utils.ExtractString(m, "patronymic")
-	birthday := utils.ExtractString(m, "birthday")
-	birthPlace := utils.ExtractString(m, "birth_place")
-	contactEmail := utils.ExtractString(m, "contact_email")
-	inn := utils.ExtractString(m, "inn")
-	snils := utils.ExtractString(m, "snils")
-	createdLKAt := utils.ExtractString(m, "created_lk_at")
-	updatedLKAt := utils.ExtractString(m, "updated_lk_at")
-	passIssuerCode := utils.ExtractString(m, "pass_issuer_code")
-	passSeries := utils.ExtractString(m, "pass_series")
-	passNumber := utils.ExtractString(m, "pass_number")
-	passIssueDate := utils.ExtractString(m, "pass_issue_date")
-	passIssuer := utils.ExtractString(m, "pass_issuer")
-	mainPhone := utils.ExtractString(m, "main_phone")
+	// Используем утилиту для полного парсинга
+	client := utils.ParseClientVersion(userData.RawData)
 
-	// Извлекаем external risk level
-	externalRisk := utils.ExtractString(m, "external_risk_level")
+	// Устанавливаем версионные поля
+	client.ClientID = userData.UserID
+	client.Version = version
+	client.SecondPartTriggerHash = userData.TriggerHash
+	client.Hash = userData.TriggerHash
+	client.NeedsSecondPart = true
+	client.Status = "changed"
+	client.SyncedAt = now
+	client.ValidFrom = now
+	client.IsCurrent = true
 
-	return models.ClientVersion{
-		ClientID:              userData.UserID,
-		Version:               version,
-		Surname:               surname,
-		Name:                  name,
-		Patronymic:            patronymic,
-		Birthday:              birthday,
-		BirthPlace:            birthPlace,
-		ContactEmail:          contactEmail,
-		Inn:                   inn,
-		Snils:                 snils,
-		CreatedLKAt:           createdLKAt,
-		UpdatedLKAt:           updatedLKAt,
-		PassIssuerCode:        passIssuerCode,
-		PassSeries:            passSeries,
-		PassNumber:            passNumber,
-		PassIssueDate:         passIssueDate,
-		PassIssuer:            passIssuer,
-		MainPhone:             mainPhone,
-		ExternalRiskLevel:     externalRisk,
-		SecondPartTriggerHash: userData.TriggerHash,
-		NeedsSecondPart:       true,
-		SecondPartCreated:     false, // По умолчанию для новых клиентов
-		Hash:                  userData.TriggerHash,
-		Raw:                   datatypes.JSON(userData.RawData),
-		SyncedAt:              now,
-		ValidFrom:             now,
-		ValidTo:               nil,
-		IsCurrent:             true,
-		Status:                "changed",
-	}
+	return client
 }

@@ -57,19 +57,49 @@ func (m *Migrator) MigrateStaging() error {
 }
 
 func (m *Migrator) MigrateCoreClients() error {
-	log.Println("Migrating core client schema and tables...")
+	log.Println("Migrating core clients tables...")
 	if err := m.db.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
 		return err
 	}
+
 	if err := m.db.AutoMigrate(&models.ClientVersion{}); err != nil {
 		return err
 	}
 
-	return m.db.Exec(`
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_current
-		ON core.clients_versions (client_id)
-		WHERE is_current = true 
-	`).Error
+	// Создаем индексы для новых полей
+	queries := []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_versions_current
+		 ON core.clients_versions (client_id)
+		 WHERE is_current = true`,
+
+		`CREATE INDEX IF NOT EXISTS idx_clients_versions_login
+		 ON core.clients_versions (login)
+		 WHERE login IS NOT NULL AND login != ''`,
+
+		`CREATE INDEX IF NOT EXISTS idx_clients_versions_external_id_str
+		 ON core.clients_versions (external_id_str)
+		 WHERE external_id_str IS NOT NULL AND external_id_str != ''`,
+
+		`CREATE INDEX IF NOT EXISTS idx_clients_versions_risk_level
+		 ON core.clients_versions (risk_level)
+		 WHERE risk_level IS NOT NULL AND risk_level != ''`,
+
+		`CREATE INDEX IF NOT EXISTS idx_clients_versions_inn
+		 ON core.clients_versions (inn)
+		 WHERE inn IS NOT NULL AND inn != ''`,
+
+		`CREATE INDEX IF NOT EXISTS idx_clients_versions_snils
+		 ON core.clients_versions (snils)
+		 WHERE snils IS NOT NULL AND snils != ''`,
+	}
+
+	for _, query := range queries {
+		if err := m.db.Exec(query).Error; err != nil {
+			log.Printf("Warning: could not create index: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func (m *Migrator) MigrateCoreSecondPart() error {

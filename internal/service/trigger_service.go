@@ -119,7 +119,6 @@ func (s *TriggerService) ExtractExternalRiskLevel(raw []byte) string {
 	return ""
 }
 
-// Вспомогательные функции
 func toString(v any) string {
 	switch t := v.(type) {
 	case nil:
