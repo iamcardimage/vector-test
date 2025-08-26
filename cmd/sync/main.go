@@ -1,4 +1,3 @@
-// cmd/sync/main.go - ИСПРАВЛЕННАЯ ВЕРСИЯ
 package main
 
 import (
@@ -53,19 +52,30 @@ type dependencies struct {
 }
 
 func initDependencies(gdb *gorm.DB) *dependencies {
-
+	// Repositories
 	stagingRepo := repository.NewSyncStagingRepository(gdb)
 	clientRepo := repository.NewSyncClientRepository(gdb)
 
+	// Contract repositories (ГОТОВО!)
+	contractStagingRepo := repository.NewContractStagingRepository(gdb)
+	contractRepo := repository.NewSyncContractRepository(gdb)
+
+	// External client
 	externalClient := external.NewClient()
 	externalAPI := repository.NewSyncExternalAPIClient(externalClient)
 
+	// Services
 	triggerService := service.NewTriggerService()
 	stagingService := service.NewStagingService(stagingRepo, externalAPI)
-
 	applyService := service.NewApplyService(stagingRepo, clientRepo, externalAPI, triggerService)
-	fullSyncService := service.NewFullSyncService(applyService, externalAPI)
 
+	// Contract Service
+	contractService := service.NewContractService(contractStagingRepo, contractRepo, externalAPI)
+
+	// Full Sync Service с Contract Service
+	fullSyncService := service.NewFullSyncService(applyService, contractService, externalAPI)
+
+	// Handlers
 	syncHandlers := handlers.NewSyncHandlers(stagingService, applyService, fullSyncService)
 	healthHandlers := handlers.NewHealthHandlers()
 

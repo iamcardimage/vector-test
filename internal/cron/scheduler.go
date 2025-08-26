@@ -45,29 +45,41 @@ func StartCron() (*cron.Cron, error) {
 		stagingRepo := repository.NewSyncStagingRepository(gdb)
 		clientRepo := repository.NewSyncClientRepository(gdb)
 
+		// ДОБАВИЛИ: Contract repositories
+		contractStagingRepo := repository.NewContractStagingRepository(gdb)
+		contractRepo := repository.NewSyncContractRepository(gdb)
+
 		// External client
 		externalClient := external.NewClient()
 		externalAPI := repository.NewSyncExternalAPIClient(externalClient)
 
 		// Services
 		triggerService := service.NewTriggerService()
-
 		applyService := service.NewApplyService(stagingRepo, clientRepo, externalAPI, triggerService)
-		fullSyncService := service.NewFullSyncService(applyService, externalAPI)
+
+		// ДОБАВИЛИ: Contract Service
+		contractService := service.NewContractService(contractStagingRepo, contractRepo, externalAPI)
+
+		// ИСПРАВИЛИ: Full Sync Service с Contract Service
+		fullSyncService := service.NewFullSyncService(applyService, contractService, externalAPI)
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
 		defer cancel()
 
 		resp, err := fullSyncService.SyncFull(ctx, service.FullSyncRequest{
-			PerPage: perPage,
+			PerPage:       perPage,
+			SyncContracts: true, // ДОБАВИЛИ флаг для синхронизации договоров
 		})
 		if err != nil {
 			log.Printf("[cron] full sync error: %v", err)
 			return
 		}
 
-		log.Printf("[cron] full sync done in %s pages=%d saved=%d applied=%d created=%d updated=%d unchanged=%d",
-			time.Since(start), resp.Pages, resp.Saved, resp.Applied, resp.Created, resp.Updated, resp.Unchanged)
+		// ОБНОВИЛИ логирование с новыми полями
+		log.Printf("[cron] full sync done in %s users: pages=%d applied=%d created=%d updated=%d contracts: pages=%d applied=%d created=%d updated=%d",
+			time.Since(start),
+			resp.UserPages, resp.UserApplied, resp.UserCreated, resp.UserUpdated,
+			resp.ContractPages, resp.ContractApplied, resp.ContractCreated, resp.ContractUpdated)
 	})
 	if err != nil {
 		return nil, err

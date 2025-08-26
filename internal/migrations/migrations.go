@@ -44,6 +44,11 @@ func (m *Migrator) MigrateAll() error {
 	if err := m.MigrateCoreChecks(); err != nil {
 		return fmt.Errorf("core checks migration failed: %w", err)
 	}
+
+	if err := m.MigrateCoreContracts(); err != nil {
+		return fmt.Errorf("core contracts migration failed: %w", err)
+	}
+
 	log.Println("All migrations completed successfully")
 	return nil
 }
@@ -143,5 +148,48 @@ func (m *Migrator) MigrateCoreChecks() error {
 
 func (m *Migrator) SeedUsers() error {
 	log.Println("Seeding default users...")
-	return appdb.SeedAppUsers(m.db) // ИСПРАВЛЕНО: используем appdb
+	return appdb.SeedAppUsers(m.db)
+}
+
+func (m *Migrator) MigrateCoreContracts() error {
+	log.Println("Migrating core contracts tables...")
+	if err := m.db.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
+		return err
+	}
+
+	// Мигрируем staging таблицу для договоров
+	if err := m.db.AutoMigrate(&models.StagingExternalContract{}); err != nil {
+		return err
+	}
+
+	// Мигрируем основную таблицу договоров
+	if err := m.db.AutoMigrate(&models.Contract{}); err != nil {
+		return err
+	}
+
+	// Создаем индексы для производительности
+	queries := []string{
+		`CREATE INDEX IF NOT EXISTS idx_contracts_user_id
+		 ON core.contracts (user_id)`,
+
+		`CREATE INDEX IF NOT EXISTS idx_contracts_status
+		 ON core.contracts (status)`,
+
+		`CREATE INDEX IF NOT EXISTS idx_contracts_kind
+		 ON core.contracts (kind)`,
+
+		`CREATE INDEX IF NOT EXISTS idx_contracts_inner_code
+		 ON core.contracts (inner_code)`,
+
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_contracts_external_id
+		 ON core.contracts (external_id)`,
+	}
+
+	for _, query := range queries {
+		if err := m.db.Exec(query).Error; err != nil {
+			log.Printf("Warning: could not create contracts index: %v", err)
+		}
+	}
+
+	return nil
 }

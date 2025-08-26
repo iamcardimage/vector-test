@@ -209,3 +209,96 @@ func ExtractJSONField(m map[string]any, key string) datatypes.JSON {
 	}
 	return nil
 }
+
+func ExtractContractID(raw json.RawMessage) (int, error) {
+	var tmp map[string]any
+	if err := json.Unmarshal(raw, &tmp); err != nil {
+		return 0, err
+	}
+	idVal, ok := tmp["id"]
+	if !ok {
+		return 0, errors.New("contract id field not found")
+	}
+	switch v := idVal.(type) {
+	case float64:
+		return int(v), nil
+	case int:
+		return v, nil
+	default:
+		return 0, errors.New("invalid contract id type")
+	}
+}
+
+// ParseContract извлекает все поля из JSON для Contract
+func ParseContract(raw json.RawMessage) models.Contract {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return models.Contract{Raw: datatypes.JSON(raw)}
+	}
+
+	contract := models.Contract{
+		Raw: datatypes.JSON(raw), // Всегда сохраняем полные данные
+	}
+
+	// Основные поля
+	contract.ExternalID = ExtractInt(m, "id")
+	contract.UserID = ExtractInt(m, "user_id")
+	contract.Comment = ExtractStringPtr(m, "comment")
+	contract.CreatedAt = ExtractTime(m, "created_at")
+	contract.UpdatedAt = ExtractTime(m, "updated_at")
+	contract.InnerCode = ExtractString(m, "inner_code")
+	contract.IsPersonalInvestAccount = ExtractBool(m, "is_personal_invest_account")
+	contract.IsPersonalInvestAccountNew = ExtractBool(m, "is_personal_invest_account_new")
+	contract.Kind = ExtractString(m, "kind")
+	contract.RialtoCode = ExtractStringPtr(m, "rialto_code")
+	contract.SignedAt = ExtractTimePtr(m, "signed_at")
+	contract.ClosedAt = ExtractTimePtr(m, "closed_at")
+	contract.Status = ExtractString(m, "status")
+	contract.ContractOwnerType = ExtractString(m, "contract_owner_type")
+	contract.ContractOwnerID = ExtractInt(m, "contract_owner_id")
+	contract.Anketa = ExtractStringPtr(m, "anketa")
+	contract.OwnerID = ExtractIntPtr(m, "owner_id")
+	contract.CalculatedProfileID = ExtractIntPtr(m, "calculated_profile_id")
+	contract.DepoAccountsType = ExtractStringPtr(m, "depo_accounts_type")
+	contract.StrategyID = ExtractIntPtr(m, "strategy_id")
+	contract.StrategyName = ExtractStringPtr(m, "strategy_name")
+	contract.TariffID = ExtractIntPtr(m, "tariff_id")
+	contract.TariffName = ExtractStringPtr(m, "tariff_name")
+	contract.UserLogin = ExtractStringPtr(m, "user_login")
+
+	return contract
+}
+
+// Дополнительные helper функции
+func ExtractStringPtr(m map[string]any, key string) *string {
+	if str := ExtractString(m, key); str != "" {
+		return &str
+	}
+	return nil
+}
+
+func ExtractBool(m map[string]any, key string) bool {
+	if v, ok := m[key]; ok {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+	}
+	return false
+}
+
+func ExtractTime(m map[string]any, key string) time.Time {
+	if str := ExtractString(m, key); str != "" {
+		formats := []string{
+			"2006-01-02T15:04:05.000Z07:00",
+			"2006-01-02T15:04:05Z07:00",
+			"2006-01-02T15:04:05",
+		}
+
+		for _, format := range formats {
+			if t, err := time.Parse(format, str); err == nil {
+				return t
+			}
+		}
+	}
+	return time.Time{}
+}

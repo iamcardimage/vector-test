@@ -28,3 +28,19 @@ func (a *syncExternalClientAdapter) GetUsersRaw(ctx context.Context, page, perPa
 		Users:       httpResp.Users,
 	}, nil
 }
+
+func (a *syncExternalClientAdapter) GetContractsRaw(ctx context.Context, page, perPage int) (*ExternalContractsResponse, error) {
+	httpResp, err := a.client.GetContractsRaw(ctx, page, perPage)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExternalContractsResponse{
+		Success:     httpResp.Success,
+		TotalCount:  httpResp.TotalCount,
+		PerPage:     httpResp.PerPage,
+		CurrentPage: httpResp.CurrentPage,
+		TotalPages:  httpResp.TotalPages,
+		Contracts:   httpResp.Contracts,
+	}, nil
+}
