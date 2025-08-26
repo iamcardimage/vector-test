@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"vector/internal/db"
+	appdb "vector/internal/db/app"
 	"vector/internal/models"
 
 	"gorm.io/gorm"
@@ -112,5 +113,5 @@ func (m *Migrator) MigrateCoreChecks() error {
 
 func (m *Migrator) SeedUsers() error {
 	log.Println("Seeding default users...")
-	return db.SeedAppUsers(m.db)
+	return appdb.SeedAppUsers(m.db) // ИСПРАВЛЕНО: используем appdb
 }

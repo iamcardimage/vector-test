@@ -5,15 +5,15 @@ import (
 	"vector/internal/external"
 )
 
-type externalClientAdapter struct {
+type syncExternalClientAdapter struct {
 	client *external.Client
 }
 
-func NewExternalAPIClient(client *external.Client) ExternalAPIClient {
-	return &externalClientAdapter{client: client}
+func NewSyncExternalAPIClient(client *external.Client) ExternalAPIClient {
+	return &syncExternalClientAdapter{client: client}
 }
 
-func (a *externalClientAdapter) GetUsersRaw(ctx context.Context, page, perPage int) (*ExternalUsersResponse, error) {
+func (a *syncExternalClientAdapter) GetUsersRaw(ctx context.Context, page, perPage int) (*ExternalUsersResponse, error) {
 	httpResp, err := a.client.GetUsersRaw(ctx, page, perPage)
 	if err != nil {
 		return nil, err

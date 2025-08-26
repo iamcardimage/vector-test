@@ -11,11 +11,11 @@ import (
 )
 
 type StagingService struct {
-	stagingRepo repository.StagingRepository
+	stagingRepo repository.SyncStagingRepository
 	externalAPI repository.ExternalAPIClient
 }
 
-func NewStagingService(stagingRepo repository.StagingRepository, externalAPI repository.ExternalAPIClient) *StagingService {
+func NewStagingService(stagingRepo repository.SyncStagingRepository, externalAPI repository.ExternalAPIClient) *StagingService {
 	return &StagingService{
 		stagingRepo: stagingRepo,
 		externalAPI: externalAPI,

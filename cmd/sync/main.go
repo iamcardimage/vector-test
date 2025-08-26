@@ -1,3 +1,4 @@
+// cmd/sync/main.go - ИСПРАВЛЕННАЯ ВЕРСИЯ
 package main
 
 import (
@@ -19,19 +20,15 @@ import (
 func main() {
 	_ = godotenv.Load()
 
-	// Start cron jobs
 	_, _ = cron.StartCron()
 
-	// Initialize database
 	gdb, err := db.Connect()
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Initialize dependencies
 	deps := initDependencies(gdb)
 
-	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			log.Printf("Unhandled error: %v", err)
@@ -42,7 +39,6 @@ func main() {
 		},
 	})
 
-	// Setup routes
 	routes.SetupSyncRoutes(app, deps.syncHandlers, deps.healthHandlers)
 
 	// Start server
@@ -57,21 +53,19 @@ type dependencies struct {
 }
 
 func initDependencies(gdb *gorm.DB) *dependencies {
-	// Repositories
-	stagingRepo := repository.NewStagingRepository(gdb)
-	clientRepo := repository.NewClientRepository(gdb)
 
-	// External client
+	stagingRepo := repository.NewSyncStagingRepository(gdb)
+	clientRepo := repository.NewSyncClientRepository(gdb)
+
 	externalClient := external.NewClient()
-	externalAPI := repository.NewExternalAPIClient(externalClient)
+	externalAPI := repository.NewSyncExternalAPIClient(externalClient)
 
-	// Services
 	triggerService := service.NewTriggerService()
 	stagingService := service.NewStagingService(stagingRepo, externalAPI)
-	applyService := service.NewApplyService(stagingRepo, clientRepo, externalAPI, triggerService, gdb)
+
+	applyService := service.NewApplyService(stagingRepo, clientRepo, externalAPI, triggerService)
 	fullSyncService := service.NewFullSyncService(applyService, externalAPI)
 
-	// Handlers
 	syncHandlers := handlers.NewSyncHandlers(stagingService, applyService, fullSyncService)
 	healthHandlers := handlers.NewHealthHandlers()
 

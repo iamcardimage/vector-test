@@ -7,7 +7,7 @@ import (
 	"vector/internal/models"
 )
 
-type StagingRepository interface {
+type SyncStagingRepository interface {
 	UpsertUsers(ctx context.Context, users []models.StagingExternalUser) error
 }
 
@@ -24,8 +24,22 @@ type ExternalUsersResponse struct {
 	Users       []json.RawMessage `json:"users"`
 }
 
-type ClientRepository interface {
+type SyncClientRepository interface {
 	GetCurrentVersion(ctx context.Context, clientID int) (*models.ClientVersion, error)
 	CreateVersion(ctx context.Context, version *models.ClientVersion) error
 	UpdateCurrentVersionStatus(ctx context.Context, clientID int, isCurrent bool, validTo *time.Time) error
+	ListCurrentClients(page, perPage int, needsSecondPart *bool) ([]models.ClientListItem, int64, error)
+	ApplyUsersBatch(ctx context.Context, users []ApplyUserData) (ApplyStats, error)
+}
+
+type ApplyUserData struct {
+	UserID      int             `json:"user_id"`
+	RawData     json.RawMessage `json:"raw_data"`
+	TriggerHash string          `json:"trigger_hash"`
+}
+
+type ApplyStats struct {
+	Created   int `json:"created"`
+	Updated   int `json:"updated"`
+	Unchanged int `json:"unchanged"`
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"vector/internal/db"
+	"vector/internal/repository"
 
 	"github.com/robfig/cron/v3"
 )
@@ -24,21 +25,26 @@ func StartCron() (*cron.Cron, error) {
 			log.Printf("[app-cron] db connect error: %v", err)
 			return
 		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		_ = ctx
-		n, err := db.RecalcNeedsSecondPart(gdb)
-		n2, err2 := db.RecalcPassportExpiry(gdb)
+
+		recalcRepo := repository.NewRecalcRepository(gdb)
+
+		n, err := recalcRepo.RecalcNeedsSecondPart()
+		if err != nil {
+			log.Printf("[app-cron] recalc error: %v", err)
+		} else {
+			log.Printf("[app-cron] recalc done, updated=%d", n)
+		}
+
+		n2, err2 := recalcRepo.RecalcPassportExpiry()
 		if err2 != nil {
 			log.Printf("[app-cron] passport recalc error: %v", err2)
 		} else {
 			log.Printf("[app-cron] passport recalc updated=%d", n2)
 		}
-		if err != nil {
-			log.Printf("[app-cron] recalc error: %v", err)
-			return
-		}
-		log.Printf("[app-cron] recalc done, updated=%d", n)
 	})
 	if err != nil {
 		return nil, err

@@ -1,181 +1,40 @@
-package db
+package app
 
 import (
-	"fmt"
-	"log"
-	"os"
 	"strings"
-	"sync"
 	"time"
 	"vector/internal/models"
 
-	"github.com/google/uuid"
-	"github.com/joho/godotenv"
 	"gorm.io/datatypes"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
-	"gorm.io/gorm/logger"
 )
 
-var (
-	globalDB *gorm.DB
-	once     sync.Once
-)
+// ===== CLIENT QUERIES =====
 
-func Connect() (*gorm.DB, error) {
-	_ = godotenv.Load()
-
-	host := getenv("DB_HOST", "localhost")
-	port := getenv("DB_PORT", "5432")
-	user := getenv("POSTGRES_USER", "app")
-	pass := getenv("POSTGRES_PASSWORD", "app")
-	name := getenv("POSTGRES_DB", "vector")
-	ssl := getenv("DB_SSLMODE", "disable")
-
-	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC",
-		host, port, user, pass, name, ssl,
-	)
-
-	var openErr error
-	once.Do(func() {
-		lg := logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{
-			SlowThreshold:             time.Second,
-			LogLevel:                  logger.Warn,
-			IgnoreRecordNotFoundError: true,
-			Colorful:                  true,
-		})
-
-		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: lg})
-		if err != nil {
-			openErr = err
-			return
-		}
-		sqlDB, err := db.DB()
-		if err == nil {
-			sqlDB.SetMaxOpenConns(15)
-			sqlDB.SetMaxIdleConns(5)
-			sqlDB.SetConnMaxLifetime(5 * time.Minute)
-			sqlDB.SetConnMaxIdleTime(1 * time.Minute)
-		}
-		globalDB = db
-	})
-	if openErr != nil {
-		return nil, openErr
-	}
-	return globalDB, nil
-}
-
-func getenv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
-
-func UpsertStagingExternalUsers(gdb *gorm.DB, items []models.StagingExternalUser) error {
-	if len(items) == 0 {
-		return nil
-	}
-	return gdb.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"raw", "synced_at"}),
-	}).Create(&items).Error
-}
-
-type ClientListItem struct {
-	ClientID          int    `gorm:"column:client_id" json:"id"`
-	Surname           string `json:"surname"`
-	Name              string `json:"name"`
-	Patronymic        string `json:"patronymic"`
-	Birthday          string `json:"birthday"`
-	BirthPlace        string `json:"birth_place"`
-	ContactEmail      string `json:"contact_email"`
-	Inn               string `json:"inn"`
-	Snils             string `json:"snils"`
-	CreatedLKAt       string `json:"created_lk_at"`
-	UpdatedLKAt       string `json:"updated_lk_at"`
-	PassIssuerCode    string `json:"pass_issuer_code"`
-	PassSeries        string `json:"pass_series"`
-	PassNumber        string `json:"pass_number"`
-	PassIssueDate     string `json:"pass_issue_date"`
-	PassIssuer        string `json:"pass_issuer"`
-	MainPhone         string `json:"main_phone"`
-	ExternalRiskLevel string `gorm:"column:external_risk_level" json:"external_risk_level"`
-	NeedsSecondPart   bool   `gorm:"column:needs_second_part" json:"needs_second_part"`
-	SecondPartCreated bool   `gorm:"column:second_part_created" json:"second_part_created"`
-}
-
-func ListCurrentClients(gdb *gorm.DB, page, perPage int, needsSecondPart *bool) (items []ClientListItem, total int64, err error) {
-	q := gdb.Model(&models.ClientVersion{}).
-		Where("is_current = ?", true)
-
-	if needsSecondPart != nil {
-		q = q.Where("needs_second_part = ?", *needsSecondPart)
-	}
-
-	if err = q.Count(&total).Error; err != nil {
-		return
-	}
-
-	if page <= 0 {
-		page = 1
-	}
-	if perPage <= 0 || perPage > 500 {
-		perPage = 100
-	}
-	offset := (page - 1) * perPage
-
-	err = q.
-		Select([]string{
-			"client_id",
-			"surname",
-			"name",
-			"patronymic",
-			"birthday",
-			"birth_place",
-			"contact_email",
-			"external_risk_level",
-			"needs_second_part",
-			"second_part_created",
-			"inn",
-			"snils",
-			"created_lk_at",
-			"updated_lk_at",
-			"pass_issuer_code",
-			"pass_series",
-			"pass_number",
-			"pass_issue_date",
-			"pass_issuer",
-			"main_phone",
-		}).
-		Order("client_id ASC").
-		Limit(perPage).
-		Offset(offset).
-		Scan(&items).Error
-
-	return
-}
-
+// GetClientCurrent возвращает текущую версию клиента
 func GetClientCurrent(gdb *gorm.DB, id int) (models.ClientVersion, error) {
 	var v models.ClientVersion
 	err := gdb.Where("client_id = ? AND is_current = true", id).Take(&v).Error
 	return v, err
 }
 
+// ===== SECOND PART QUERIES =====
+
+// GetSecondPartCurrent возвращает текущую вторую часть клиента
 func GetSecondPartCurrent(gdb *gorm.DB, id int) (models.SecondPartVersion, error) {
 	var sp models.SecondPartVersion
 	err := gdb.Where("client_id = ? AND is_current = true", id).Take(&sp).Error
 	return sp, err
 }
 
+// ListSecondPartHistory возвращает историю версий второй части
 func ListSecondPartHistory(gdb *gorm.DB, id int) ([]models.SecondPartVersion, error) {
 	var vs []models.SecondPartVersion
 	err := gdb.Where("client_id = ?", id).Order("version ASC").Find(&vs).Error
 	return vs, err
 }
 
+// CreateSecondPartDraft создает draft версию второй части
 func CreateSecondPartDraft(
 	gdb *gorm.DB,
 	clientID int,
@@ -187,18 +46,20 @@ func CreateSecondPartDraft(
 	var out models.SecondPartVersion
 
 	err := gdb.Transaction(func(tx *gorm.DB) error {
-
+		// текущий клиент
 		curClient, err := GetClientCurrent(tx, clientID)
 		if err != nil {
 			return err
 		}
 
+		// текущая 2-я часть
 		var curSP models.SecondPartVersion
 		err = tx.Where("client_id = ? AND is_current = true", clientID).Take(&curSP).Error
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
 
+		// закрыть текущую 2-ю часть, если была
 		nextVersion := 1
 		prefill := datatypes.JSON([]byte(`{}`))
 		if err == nil {
@@ -214,11 +75,13 @@ func CreateSecondPartDraft(
 			}
 		}
 
+		// итоговый Data: override > префилл
 		data := prefill
 		if dataOverride != nil {
 			data = *dataOverride
 		}
 
+		// расчет due_at по risk
 		var dueAt *time.Time
 		var risk string
 		if riskLevel != nil && *riskLevel != "" {
@@ -252,6 +115,7 @@ func CreateSecondPartDraft(
 			return err
 		}
 
+		// пометить у клиента, что 2-я часть создана
 		if err := tx.Model(&models.ClientVersion{}).
 			Where("client_id = ? AND is_current = true", clientID).
 			Update("second_part_created", true).Error; err != nil {
@@ -264,6 +128,7 @@ func CreateSecondPartDraft(
 	return out, err
 }
 
+// TransitionSecondPartStatus создает новую версию второй части с новым статусом
 func TransitionSecondPartStatus(
 	gdb *gorm.DB,
 	clientID int,
@@ -275,12 +140,13 @@ func TransitionSecondPartStatus(
 	var out models.SecondPartVersion
 
 	err := gdb.Transaction(func(tx *gorm.DB) error {
-
+		// Текущий клиент
 		curClient, err := GetClientCurrent(tx, clientID)
 		if err != nil {
 			return err
 		}
 
+		// Текущая 2-я часть (если нет — создадим draft)
 		var curSP models.SecondPartVersion
 		err = tx.Where("client_id = ? AND is_current = true", clientID).Take(&curSP).Error
 		if err == gorm.ErrRecordNotFound {
@@ -293,6 +159,7 @@ func TransitionSecondPartStatus(
 			return err
 		}
 
+		// Закрываем текущую
 		if err := tx.Model(&models.SecondPartVersion{}).
 			Where("client_id = ? AND is_current = true", clientID).
 			Updates(map[string]any{
@@ -302,6 +169,7 @@ func TransitionSecondPartStatus(
 			return err
 		}
 
+		// База для новой версии
 		next := models.SecondPartVersion{
 			ClientID:      clientID,
 			ClientVersion: curClient.Version,
@@ -315,6 +183,7 @@ func TransitionSecondPartStatus(
 			Reason:        "",
 		}
 
+		// Пересчёт due_at при approve
 		if newStatus == "approved" {
 			years := 1
 			if strings.ToLower(curSP.RiskLevel) == "low" {
@@ -323,6 +192,7 @@ func TransitionSecondPartStatus(
 			t := now.AddDate(years, 0, 0)
 			next.DueAt = &t
 
+			// Снять флаг "нужна 2-я часть" у текущего клиента
 			if err := tx.Model(&models.ClientVersion{}).
 				Where("client_id = ? AND is_current = true", clientID).
 				Update("needs_second_part", false).Error; err != nil {
@@ -330,6 +200,7 @@ func TransitionSecondPartStatus(
 			}
 		}
 
+		// Акторы/причина
 		if actorID != nil {
 			if newStatus == "approved" {
 				next.ApprovedByUserID = actorID
@@ -352,45 +223,29 @@ func TransitionSecondPartStatus(
 	return out, err
 }
 
+// SubmitSecondPart отправляет вторую часть на проверку
 func SubmitSecondPart(gdb *gorm.DB, clientID int, userID *int) (models.SecondPartVersion, error) {
 	return TransitionSecondPartStatus(gdb, clientID, "submitted", userID, nil)
 }
 
+// ApproveSecondPart одобряет вторую часть
 func ApproveSecondPart(gdb *gorm.DB, clientID int, approvedBy *int) (models.SecondPartVersion, error) {
 	return TransitionSecondPartStatus(gdb, clientID, "approved", approvedBy, nil)
 }
 
+// RejectSecondPart отклоняет вторую часть
 func RejectSecondPart(gdb *gorm.DB, clientID int, userID *int, reason string) (models.SecondPartVersion, error) {
 	return TransitionSecondPartStatus(gdb, clientID, "rejected", userID, &reason)
 }
 
+// RequestDocsSecondPart запрашивает документы для второй части
 func RequestDocsSecondPart(gdb *gorm.DB, clientID int, userID *int, reason string) (models.SecondPartVersion, error) {
 	return TransitionSecondPartStatus(gdb, clientID, "doc_requested", userID, &reason)
 }
 
-func GetUserByToken(gdb *gorm.DB, token string) (models.AppUser, error) {
-	var u models.AppUser
-	err := gdb.Where("token = ?", token).Take(&u).Error
-	return u, err
-}
+// ===== COMPLEX QUERIES =====
 
-func SeedAppUsers(gdb *gorm.DB) error {
-	users := []models.AppUser{
-		{Email: "admin@vector.com", Role: models.RoleAdministrator, Token: "admin-token"},
-		{Email: "podft@vector.com", Role: models.RolePodft, Token: "podft-token"},
-		{Email: "cm@vector.com", Role: models.RoleClientManagement, Token: "cm-token"},
-	}
-	for _, u := range users {
-		var existing models.AppUser
-		if err := gdb.Where("email = ?", u.Email).First(&existing).Error; err == gorm.ErrRecordNotFound {
-			if err := gdb.Create(&u).Error; err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
+// ClientWithSP представляет клиента с информацией о второй части
 type ClientWithSP struct {
 	ClientID          int    `gorm:"column:client_id" json:"id"`
 	Surname           string `json:"surname"`
@@ -406,6 +261,7 @@ type ClientWithSP struct {
 	SpClientVersion *int       `gorm:"column:sp_client_version" json:"sp_client_version,omitempty"`
 }
 
+// ListClientsWithSP возвращает список клиентов с информацией о второй части
 func ListClientsWithSP(
 	gdb *gorm.DB,
 	page, perPage int,
@@ -450,6 +306,7 @@ func ListClientsWithSP(
 		base = base.Where("sp.due_at IS NOT NULL AND sp.due_at <= ?", *dueBefore)
 	}
 
+	// count
 	if err = gdb.Table("(?) AS sub", base.Session(&gorm.Session{NewDB: true})).Count(&total).Error; err != nil {
 		return
 	}
@@ -460,103 +317,4 @@ func ListClientsWithSP(
 		Offset(offset).
 		Scan(&items).Error
 	return
-}
-
-func CreateSecondPartCheck(gdb *gorm.DB, clientID, spVersion int, kind string, payload *datatypes.JSON, runBy *int) (models.SecondPartCheck, error) {
-	ch := models.SecondPartCheck{
-		ClientID:          clientID,
-		SecondPartVersion: spVersion,
-		Kind:              kind,
-		Status:            "pending",
-		Payload:           datatypes.JSON([]byte(`{}`)),
-		RunAt:             time.Now().UTC(),
-		RunByUserID:       runBy,
-	}
-	if payload != nil {
-		ch.Payload = *payload
-	}
-	return ch, gdb.Create(&ch).Error
-}
-
-func UpdateSecondPartCheckResult(gdb *gorm.DB, checkID uint, status string, result *datatypes.JSON) (models.SecondPartCheck, error) {
-	var ch models.SecondPartCheck
-	if err := gdb.Where("id = ?", checkID).Take(&ch).Error; err != nil {
-		return ch, err
-	}
-	now := time.Now().UTC()
-	ch.Status = status
-	ch.FinishedAt = &now
-	if result != nil {
-		ch.Result = *result
-	}
-	return ch, gdb.Save(&ch).Error
-}
-
-func ListSecondPartChecks(gdb *gorm.DB, clientID int, spVersion *int) ([]models.SecondPartCheck, error) {
-	var xs []models.SecondPartCheck
-	q := gdb.Where("client_id = ?", clientID)
-	if spVersion != nil {
-		q = q.Where("second_part_version = ?", *spVersion)
-	}
-	return xs, q.Order("id DESC").Find(&xs).Error
-}
-
-func isValidRole(role string) bool {
-	switch role {
-	case models.RoleAdministrator, models.RolePodft, models.RoleClientManagement:
-		return true
-	}
-	return false
-}
-
-func CreateAppUser(gdb *gorm.DB, email, role, token string) (models.AppUser, error) {
-	email = strings.TrimSpace(strings.ToLower(email))
-	if email == "" {
-		return models.AppUser{}, fmt.Errorf("email required")
-	}
-	if !isValidRole(role) {
-		return models.AppUser{}, fmt.Errorf("invalid role")
-	}
-	if strings.TrimSpace(token) == "" {
-		token = uuid.NewString()
-	}
-	u := models.AppUser{
-		Email: email,
-		Role:  role,
-		Token: token,
-	}
-	if err := gdb.Create(&u).Error; err != nil {
-		return models.AppUser{}, err
-	}
-	return u, nil
-}
-
-func ListAppUsers(gdb *gorm.DB) ([]models.AppUser, error) {
-	var xs []models.AppUser
-	return xs, gdb.Order("id ASC").Find(&xs).Error
-}
-
-func UpdateUserRole(gdb *gorm.DB, id uint, role string) (models.AppUser, error) {
-	if !isValidRole(role) {
-		return models.AppUser{}, fmt.Errorf("invalid role")
-	}
-	var u models.AppUser
-	if err := gdb.First(&u, id).Error; err != nil {
-		return u, err
-	}
-	u.Role = role
-	return u, gdb.Save(&u).Error
-}
-
-func RotateUserToken(gdb *gorm.DB, id uint) (models.AppUser, error) {
-	var u models.AppUser
-	if err := gdb.First(&u, id).Error; err != nil {
-		return u, err
-	}
-	u.Token = uuid.NewString()
-	return u, gdb.Save(&u).Error
-}
-
-func DeleteAppUser(gdb *gorm.DB, id uint) error {
-	return gdb.Delete(&models.AppUser{}, id).Error
 }
