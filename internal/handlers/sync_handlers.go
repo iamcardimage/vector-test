@@ -58,7 +58,8 @@ func (h *SyncHandlers) SyncFull(c *fiber.Ctx) error {
 	perPage := c.Locals("per_page").(int)
 
 	resp, err := h.fullSyncService.SyncFull(c.UserContext(), service.FullSyncRequest{
-		PerPage: perPage,
+		PerPage:       perPage,
+		SyncContracts: true,
 	})
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -81,9 +82,11 @@ func (c *Client) GetUsersRaw(ctx context.Context, page, perPage int) (*HTTPUsers
 		return nil, fmt.Errorf("EXTERNAL_API_BASE_URL is empty")
 	}
 
-	u, err := url.Parse(c.baseURL)
+	// Добавляем путь для users к базовому URL
+	usersURL := c.baseURL + "/users"
+	u, err := url.Parse(usersURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base url: %w", err)
+		return nil, fmt.Errorf("invalid users url: %w", err)
 	}
 
 	q := u.Query()
@@ -135,12 +138,12 @@ func (c *Client) GetContractsRaw(ctx context.Context, page, perPage int) (*HTTPC
 		return nil, fmt.Errorf("EXTERNAL_API_BASE_URL is empty")
 	}
 
-	u, err := url.Parse(c.baseURL)
+	// Используем базовый URL и добавляем путь для contracts
+	contractsURL := c.baseURL + "/contracts"
+	u, err := url.Parse(contractsURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base url: %w", err)
+		return nil, fmt.Errorf("invalid contracts url: %w", err)
 	}
-
-	u.Path = "/contracts"
 
 	q := u.Query()
 	q.Set("page", fmt.Sprintf("%d", page))
@@ -157,21 +160,30 @@ func (c *Client) GetContractsRaw(ctx context.Context, page, perPage int) (*HTTPC
 	}
 	req.Header.Set("Accept", "application/json")
 
+	log.Printf("[contracts] requesting: %s", u.String())
+
 	resp, err := c.doWithRetry(req)
 	if err != nil {
+		log.Printf("[contracts] request error: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	log.Printf("[contracts] response status: %s", resp.Status)
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
+		log.Printf("[contracts] error response body: %s", string(b))
 		return nil, fmt.Errorf("external api status: %s body: %s", resp.Status, strings.TrimSpace(string(b)))
 	}
 
 	var out HTTPContractsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		log.Printf("[contracts] json decode error: %v", err)
 		return nil, err
 	}
+
+	log.Printf("[contracts] success: total_count=%d, contracts_count=%d", out.TotalCount, len(out.Contracts))
 
 	return &out, nil
 }

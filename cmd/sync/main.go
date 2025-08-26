@@ -56,7 +56,6 @@ func initDependencies(gdb *gorm.DB) *dependencies {
 	stagingRepo := repository.NewSyncStagingRepository(gdb)
 	clientRepo := repository.NewSyncClientRepository(gdb)
 
-	// Contract repositories (ГОТОВО!)
 	contractStagingRepo := repository.NewContractStagingRepository(gdb)
 	contractRepo := repository.NewSyncContractRepository(gdb)
 

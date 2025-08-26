@@ -69,8 +69,10 @@ func ParseClientVersion(raw json.RawMessage) models.ClientVersion {
 	client.Blocked = ExtractBoolPtr(m, "blocked")
 	client.BlockedReason = ExtractString(m, "blocked_reason")
 	client.BlockType = ExtractString(m, "block_type")
-	client.Male = ExtractBoolPtr(m, "male")
-	client.IsRfResident = ExtractBoolPtr(m, "is_rf_resident")
+	if personInfo, ok := m["person_info"].(map[string]any); ok {
+		client.Male = ExtractBoolPtr(personInfo, "male")
+		client.IsRfResident = ExtractBoolPtr(personInfo, "is_rf_resident")
+	}
 	client.DocumentType = ExtractString(m, "document_type")
 	client.DocumentCountry = ExtractString(m, "document_country")
 	client.LegalCapacity = ExtractString(m, "legal_capacity")
@@ -242,7 +244,7 @@ func ParseContract(raw json.RawMessage) models.Contract {
 
 	// Основные поля
 	contract.ExternalID = ExtractInt(m, "id")
-	contract.UserID = ExtractInt(m, "user_id")
+	contract.UserID = ExtractInt(m, "contract_owner_id")
 	contract.Comment = ExtractStringPtr(m, "comment")
 	contract.CreatedAt = ExtractTime(m, "created_at")
 	contract.UpdatedAt = ExtractTime(m, "updated_at")
