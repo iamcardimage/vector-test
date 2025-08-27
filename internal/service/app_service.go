@@ -29,8 +29,6 @@ func NewAppService(
 	}
 }
 
-// ===== USER MANAGEMENT =====
-
 func (s *AppService) GetUserByToken(token string) (models.AppUser, error) {
 	return s.userRepo.GetByToken(token)
 }
@@ -54,8 +52,6 @@ func (s *AppService) RotateUserToken(id uint) (models.AppUser, error) {
 func (s *AppService) DeleteUser(id uint) error {
 	return s.userRepo.Delete(id)
 }
-
-// ===== CLIENT MANAGEMENT =====
 
 func (s *AppService) GetClientCurrent(clientID int) (models.ClientVersion, error) {
 	return s.clientRepo.GetCurrent(clientID)
@@ -93,8 +89,6 @@ func (s *AppService) ListClientsWithSP(page, perPage int, needsSecondPart *bool,
 	return s.clientRepo.ListClientsWithSP(page, perPage, needsSecondPart, spStatus, dueBefore)
 }
 
-// ===== CHECK SYSTEM =====
-
 func (s *AppService) CreateSecondPartCheck(clientID, spVersion int, kind string, payload *datatypes.JSON, runBy *int) (models.SecondPartCheck, error) {
 	return s.checkRepo.CreateSecondPartCheck(clientID, spVersion, kind, payload, runBy)
 }
@@ -106,8 +100,6 @@ func (s *AppService) UpdateCheckResult(checkID uint, status string, result *data
 func (s *AppService) ListChecksByClient(clientID int, spVersion *int) ([]models.SecondPartCheck, error) {
 	return s.checkRepo.ListByClient(clientID, spVersion)
 }
-
-// ===== RECALCULATION =====
 
 func (s *AppService) RecalcNeedsSecondPart() (int64, error) {
 	return s.recalcRepo.RecalcNeedsSecondPart()

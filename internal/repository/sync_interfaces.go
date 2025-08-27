@@ -13,7 +13,7 @@ type SyncStagingRepository interface {
 
 type ExternalAPIClient interface {
 	GetUsersRaw(ctx context.Context, page, perPage int) (*ExternalUsersResponse, error)
-	GetContractsRaw(ctx context.Context, page, perPage int) (*ExternalContractsResponse, error) // ДОБАВИЛИ
+	GetContractsRaw(ctx context.Context, page, perPage int) (*ExternalContractsResponse, error)
 }
 
 type ExternalUsersResponse struct {
@@ -45,7 +45,6 @@ type ApplyStats struct {
 	Unchanged int `json:"unchanged"`
 }
 
-// Новые интерфейсы для договоров
 type SyncContractRepository interface {
 	GetCurrentContract(ctx context.Context, contractID int) (*models.Contract, error)
 	ListContracts(page, perPage int, userID *int, status *string) ([]models.Contract, int64, error)
@@ -62,7 +61,6 @@ type ApplyContractData struct {
 	Hash       string          `json:"hash"`
 }
 
-// Новая структура для ответа API договоров
 type ExternalContractsResponse struct {
 	Success     bool              `json:"success"`
 	TotalCount  int               `json:"total_count"`

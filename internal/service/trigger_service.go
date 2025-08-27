@@ -15,7 +15,6 @@ func NewTriggerService() *TriggerService {
 	return &TriggerService{}
 }
 
-// Поля, изменение которых должно инициировать вторую часть
 var triggerFields = []string{
 	"main_phone", "name", "surname", "qualified_investor", "birthday",
 	"contact_email", "patronymic", "male", "birth_place", "inn", "snils",
@@ -30,7 +29,6 @@ var triggerFields = []string{
 	"for_corresp_region", "for_corresp_district",
 }
 
-// Пути к вложенным полям из блока addresses.*
 var nestedAddressPaths = map[string][]string{
 	"residential_country":  {"addresses", "residential", "country"},
 	"residential_index":    {"addresses", "residential", "index"},
@@ -65,34 +63,29 @@ func (s *TriggerService) ComputeSecondPartTriggerHash(raw []byte) (string, error
 			ok  bool
 		)
 
-		// 1) Вложенные адреса по карте путей
 		if path, has := nestedAddressPaths[key]; has {
 			if v, okp := getByPath(m, path); okp {
 				val, ok = v, true
 			}
 		}
 
-		// 2) Плоское поле верхнего уровня
 		if !ok {
 			if v, okTop := m[key]; okTop {
 				val, ok = v, true
 			}
 		}
 
-		// 3) Дубль внутри person_info.{key}
 		if !ok {
 			if v, okPI := getByPath(m, []string{"person_info", key}); okPI {
 				val, ok = v, true
 			}
 		}
 
-		// Нормализуем к строке
 		s := ""
 		if ok {
 			s = toString(val)
 		}
 
-		// Конкатенация с ключом для стабильности
 		b.WriteString(key)
 		b.WriteString("=")
 		b.WriteString(s)
@@ -108,11 +101,11 @@ func (s *TriggerService) ExtractExternalRiskLevel(raw []byte) string {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return ""
 	}
-	// обычно в корне
+
 	if v, ok := m["risk_level"]; ok {
 		return toString(v)
 	}
-	// запасной вариант: вдруг вложили куда-то
+
 	if v, ok := getByPath(m, []string{"person_info", "risk_level"}); ok {
 		return toString(v)
 	}

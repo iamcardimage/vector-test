@@ -1,4 +1,3 @@
-// internal/db/sync/clients.go
 package sync
 
 import (
@@ -7,7 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ClientListItem представляет элемент списка клиентов для sync сервиса
 type ClientListItem struct {
 	ClientID          int    `gorm:"column:client_id" json:"id"`
 	Surname           string `json:"surname"`
@@ -31,7 +29,6 @@ type ClientListItem struct {
 	SecondPartCreated bool   `gorm:"column:second_part_created" json:"second_part_created"`
 }
 
-// ListCurrentClients возвращает список текущих версий клиентов для sync сервиса
 func ListCurrentClients(gdb *gorm.DB, page, perPage int, needsSecondPart *bool) (items []ClientListItem, total int64, err error) {
 	q := gdb.Model(&models.ClientVersion{}).
 		Where("is_current = ?", true)

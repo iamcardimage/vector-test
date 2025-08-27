@@ -18,7 +18,6 @@ var (
 	once     sync.Once
 )
 
-// Connect создает подключение к базе данных (singleton)
 func Connect() (*gorm.DB, error) {
 	_ = godotenv.Load()
 
@@ -63,7 +62,6 @@ func Connect() (*gorm.DB, error) {
 	return globalDB, nil
 }
 
-// getenv возвращает переменную окружения или значение по умолчанию
 func getenv(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v

@@ -15,17 +15,14 @@ type SecondPartVersion struct {
 	ValidFrom time.Time `gorm:"not null"`
 	ValidTo   *time.Time
 
-	// draft | submitted | approved | rejected | doc_requested | superseded_by_client_change
+	// draft | submitted | approved | rejected | doc_requested
 	Status string `gorm:"type:text;not null"`
 
-	// Гибкие поля формы второй части
 	Data datatypes.JSON `gorm:"type:jsonb"`
 
-	// Риск второй части и срок следующей проверки
 	RiskLevel string `gorm:"type:text"` // low | high
 	DueAt     *time.Time
 
-	// Акторы/аудит
 	CreatedByUserID  *int
 	UpdatedByUserID  *int
 	ApprovedByUserID *int

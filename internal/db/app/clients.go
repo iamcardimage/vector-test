@@ -9,32 +9,24 @@ import (
 	"gorm.io/gorm"
 )
 
-// ===== CLIENT QUERIES =====
-
-// GetClientCurrent возвращает текущую версию клиента
 func GetClientCurrent(gdb *gorm.DB, id int) (models.ClientVersion, error) {
 	var v models.ClientVersion
 	err := gdb.Where("client_id = ? AND is_current = true", id).Take(&v).Error
 	return v, err
 }
 
-// ===== SECOND PART QUERIES =====
-
-// GetSecondPartCurrent возвращает текущую вторую часть клиента
 func GetSecondPartCurrent(gdb *gorm.DB, id int) (models.SecondPartVersion, error) {
 	var sp models.SecondPartVersion
 	err := gdb.Where("client_id = ? AND is_current = true", id).Take(&sp).Error
 	return sp, err
 }
 
-// ListSecondPartHistory возвращает историю версий второй части
 func ListSecondPartHistory(gdb *gorm.DB, id int) ([]models.SecondPartVersion, error) {
 	var vs []models.SecondPartVersion
 	err := gdb.Where("client_id = ?", id).Order("version ASC").Find(&vs).Error
 	return vs, err
 }
 
-// CreateSecondPartDraft создает draft версию второй части
 func CreateSecondPartDraft(
 	gdb *gorm.DB,
 	clientID int,
@@ -46,20 +38,18 @@ func CreateSecondPartDraft(
 	var out models.SecondPartVersion
 
 	err := gdb.Transaction(func(tx *gorm.DB) error {
-		// текущий клиент
+
 		curClient, err := GetClientCurrent(tx, clientID)
 		if err != nil {
 			return err
 		}
 
-		// текущая 2-я часть
 		var curSP models.SecondPartVersion
 		err = tx.Where("client_id = ? AND is_current = true", clientID).Take(&curSP).Error
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
 
-		// закрыть текущую 2-ю часть, если была
 		nextVersion := 1
 		prefill := datatypes.JSON([]byte(`{}`))
 		if err == nil {
@@ -75,13 +65,11 @@ func CreateSecondPartDraft(
 			}
 		}
 
-		// итоговый Data: override > префилл
 		data := prefill
 		if dataOverride != nil {
 			data = *dataOverride
 		}
 
-		// расчет due_at по risk
 		var dueAt *time.Time
 		var risk string
 		if riskLevel != nil && *riskLevel != "" {
@@ -115,7 +103,6 @@ func CreateSecondPartDraft(
 			return err
 		}
 
-		// пометить у клиента, что 2-я часть создана
 		if err := tx.Model(&models.ClientVersion{}).
 			Where("client_id = ? AND is_current = true", clientID).
 			Update("second_part_created", true).Error; err != nil {
@@ -128,7 +115,6 @@ func CreateSecondPartDraft(
 	return out, err
 }
 
-// TransitionSecondPartStatus создает новую версию второй части с новым статусом
 func TransitionSecondPartStatus(
 	gdb *gorm.DB,
 	clientID int,
@@ -140,13 +126,12 @@ func TransitionSecondPartStatus(
 	var out models.SecondPartVersion
 
 	err := gdb.Transaction(func(tx *gorm.DB) error {
-		// Текущий клиент
+
 		curClient, err := GetClientCurrent(tx, clientID)
 		if err != nil {
 			return err
 		}
 
-		// Текущая 2-я часть (если нет — создадим draft)
 		var curSP models.SecondPartVersion
 		err = tx.Where("client_id = ? AND is_current = true", clientID).Take(&curSP).Error
 		if err == gorm.ErrRecordNotFound {
@@ -159,7 +144,6 @@ func TransitionSecondPartStatus(
 			return err
 		}
 
-		// Закрываем текущую
 		if err := tx.Model(&models.SecondPartVersion{}).
 			Where("client_id = ? AND is_current = true", clientID).
 			Updates(map[string]any{
@@ -169,7 +153,6 @@ func TransitionSecondPartStatus(
 			return err
 		}
 
-		// База для новой версии
 		next := models.SecondPartVersion{
 			ClientID:      clientID,
 			ClientVersion: curClient.Version,
@@ -183,7 +166,6 @@ func TransitionSecondPartStatus(
 			Reason:        "",
 		}
 
-		// Пересчёт due_at при approve
 		if newStatus == "approved" {
 			years := 1
 			if strings.ToLower(curSP.RiskLevel) == "low" {
@@ -192,7 +174,6 @@ func TransitionSecondPartStatus(
 			t := now.AddDate(years, 0, 0)
 			next.DueAt = &t
 
-			// Снять флаг "нужна 2-я часть" у текущего клиента
 			if err := tx.Model(&models.ClientVersion{}).
 				Where("client_id = ? AND is_current = true", clientID).
 				Update("needs_second_part", false).Error; err != nil {
@@ -200,7 +181,6 @@ func TransitionSecondPartStatus(
 			}
 		}
 
-		// Акторы/причина
 		if actorID != nil {
 			if newStatus == "approved" {
 				next.ApprovedByUserID = actorID
@@ -223,29 +203,22 @@ func TransitionSecondPartStatus(
 	return out, err
 }
 
-// SubmitSecondPart отправляет вторую часть на проверку
 func SubmitSecondPart(gdb *gorm.DB, clientID int, userID *int) (models.SecondPartVersion, error) {
 	return TransitionSecondPartStatus(gdb, clientID, "submitted", userID, nil)
 }
 
-// ApproveSecondPart одобряет вторую часть
 func ApproveSecondPart(gdb *gorm.DB, clientID int, approvedBy *int) (models.SecondPartVersion, error) {
 	return TransitionSecondPartStatus(gdb, clientID, "approved", approvedBy, nil)
 }
 
-// RejectSecondPart отклоняет вторую часть
 func RejectSecondPart(gdb *gorm.DB, clientID int, userID *int, reason string) (models.SecondPartVersion, error) {
 	return TransitionSecondPartStatus(gdb, clientID, "rejected", userID, &reason)
 }
 
-// RequestDocsSecondPart запрашивает документы для второй части
 func RequestDocsSecondPart(gdb *gorm.DB, clientID int, userID *int, reason string) (models.SecondPartVersion, error) {
 	return TransitionSecondPartStatus(gdb, clientID, "doc_requested", userID, &reason)
 }
 
-// ===== COMPLEX QUERIES =====
-
-// ClientWithSP представляет клиента с информацией о второй части
 type ClientWithSP struct {
 	ClientID          int    `gorm:"column:client_id" json:"id"`
 	Surname           string `json:"surname"`
@@ -261,7 +234,6 @@ type ClientWithSP struct {
 	SpClientVersion *int       `gorm:"column:sp_client_version" json:"sp_client_version,omitempty"`
 }
 
-// ListClientsWithSP возвращает список клиентов с информацией о второй части
 func ListClientsWithSP(
 	gdb *gorm.DB,
 	page, perPage int,
@@ -306,7 +278,6 @@ func ListClientsWithSP(
 		base = base.Where("sp.due_at IS NOT NULL AND sp.due_at <= ?", *dueBefore)
 	}
 
-	// count
 	if err = gdb.Table("(?) AS sub", base.Session(&gorm.Session{NewDB: true})).Count(&total).Error; err != nil {
 		return
 	}

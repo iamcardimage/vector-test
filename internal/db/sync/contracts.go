@@ -10,13 +10,11 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// UpsertContracts добавляет или обновляет договоры в core.contracts
 func UpsertContracts(gdb *gorm.DB, contracts []models.Contract) error {
 	if len(contracts) == 0 {
 		return nil
 	}
 
-	// ИСПРАВИЛИ: используем clause.OnConflict
 	return gdb.Table("core.contracts").
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "external_id"}},
@@ -33,7 +31,6 @@ func UpsertContracts(gdb *gorm.DB, contracts []models.Contract) error {
 		Create(&contracts).Error
 }
 
-// GetCurrentContract возвращает текущий договор по ID
 func GetCurrentContract(gdb *gorm.DB, contractID int) (*models.Contract, error) {
 	var contract models.Contract
 	err := gdb.Table("core.contracts").
@@ -46,14 +43,12 @@ func GetCurrentContract(gdb *gorm.DB, contractID int) (*models.Contract, error) 
 	return &contract, err
 }
 
-// ListContracts возвращает список договоров с пагинацией
 func ListContracts(gdb *gorm.DB, page, perPage int, userID *int, status *string) ([]models.Contract, int64, error) {
 	var contracts []models.Contract
 	var total int64
 
 	query := gdb.Table("core.contracts")
 
-	// Фильтры
 	if userID != nil {
 		query = query.Where("user_id = ?", *userID)
 	}
@@ -61,12 +56,10 @@ func ListContracts(gdb *gorm.DB, page, perPage int, userID *int, status *string)
 		query = query.Where("status = ?", *status)
 	}
 
-	// Считаем общее количество
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// Получаем данные с пагинацией
 	offset := (page - 1) * perPage
 	err := query.
 		Order("external_id DESC").
@@ -77,7 +70,6 @@ func ListContracts(gdb *gorm.DB, page, perPage int, userID *int, status *string)
 	return contracts, total, err
 }
 
-// ApplyContractsBatch применяет изменения договоров
 func ApplyContractsBatch(gdb *gorm.DB, ctx context.Context, contractsData []ApplyContractData) (ApplyStats, error) {
 	stats := ApplyStats{
 		Created:   0,
@@ -93,34 +85,29 @@ func ApplyContractsBatch(gdb *gorm.DB, ctx context.Context, contractsData []Appl
 	contracts := make([]models.Contract, 0, len(contractsData))
 
 	for _, data := range contractsData {
-		// Проверяем существующий договор
 		existing, err := GetCurrentContract(gdb, data.ContractID)
 		if err != nil {
 			continue
 		}
 
-		// Парсим новые данные
 		newContract := utils.ParseContract(data.RawData)
 		newContract.ExternalID = data.ContractID
 		newContract.Hash = data.Hash
 		newContract.SyncedAt = now
 
 		if existing == nil {
-			// Новый договор
 			contracts = append(contracts, newContract)
 			stats.Created++
 		} else if existing.Hash != data.Hash {
-			// Изменения есть
-			newContract.ID = existing.ID // Сохраняем внутренний ID
+			newContract.ID = existing.ID
 			contracts = append(contracts, newContract)
 			stats.Updated++
 		} else {
-			// Без изменений
+
 			stats.Unchanged++
 		}
 	}
 
-	// Сохраняем все изменения
 	if len(contracts) > 0 {
 		if err := UpsertContracts(gdb, contracts); err != nil {
 			return stats, err
@@ -130,7 +117,6 @@ func ApplyContractsBatch(gdb *gorm.DB, ctx context.Context, contractsData []Appl
 	return stats, nil
 }
 
-// Структуры для данных
 type ApplyContractData struct {
 	ContractID int    `json:"contract_id"`
 	RawData    []byte `json:"raw_data"`

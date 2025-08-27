@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-// ClientWithSP представляет клиента с информацией о второй части (для app сервиса)
 type ClientWithSP struct {
 	ClientID          int    `gorm:"column:client_id" json:"id"`
 	Surname           string `json:"surname"`

@@ -25,7 +25,7 @@ func (r *syncContractRepository) ListContracts(page, perPage int, userID *int, s
 }
 
 func (r *syncContractRepository) ApplyContractsBatch(ctx context.Context, contracts []ApplyContractData) (ApplyStats, error) {
-	// Конвертируем repository.ApplyContractData в syncdb.ApplyContractData
+
 	syncData := make([]syncdb.ApplyContractData, len(contracts))
 	for i, c := range contracts {
 		syncData[i] = syncdb.ApplyContractData{
@@ -35,13 +35,11 @@ func (r *syncContractRepository) ApplyContractsBatch(ctx context.Context, contra
 		}
 	}
 
-	// Вызываем DB слой
 	syncStats, err := syncdb.ApplyContractsBatch(r.database, ctx, syncData)
 	if err != nil {
 		return ApplyStats{}, err
 	}
 
-	// Конвертируем обратно в repository.ApplyStats
 	return ApplyStats{
 		Created:   syncStats.Created,
 		Updated:   syncStats.Updated,

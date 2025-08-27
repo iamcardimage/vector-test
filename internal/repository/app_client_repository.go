@@ -56,7 +56,6 @@ func (r *appClientRepository) ListClientsWithSP(page, perPage int, needsSecondPa
 		return nil, 0, err
 	}
 
-	// Конвертируем appdb.ClientWithSP в models.ClientWithSP
 	items := make([]models.ClientWithSP, len(dbItems))
 	for i, dbItem := range dbItems {
 		items[i] = models.ClientWithSP{

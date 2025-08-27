@@ -40,7 +40,6 @@ type HTTPUsersResponse struct {
 	Users       []json.RawMessage `json:"users"`
 }
 
-// Retry механизм для HTTP запросов
 func (c *Client) doWithRetry(req *http.Request) (*http.Response, error) {
 	const maxRetries = 3
 	base := 500 * time.Millisecond
@@ -76,13 +75,11 @@ func (c *Client) doWithRetry(req *http.Request) (*http.Response, error) {
 	return nil, fmt.Errorf("unreachable")
 }
 
-// GetUsersRaw возвращает HTTP transport структуру
 func (c *Client) GetUsersRaw(ctx context.Context, page, perPage int) (*HTTPUsersResponse, error) {
 	if c.baseURL == "" {
 		return nil, fmt.Errorf("EXTERNAL_API_BASE_URL is empty")
 	}
 
-	// Добавляем путь для users к базовому URL
 	usersURL := c.baseURL + "/users"
 	u, err := url.Parse(usersURL)
 	if err != nil {
@@ -132,13 +129,11 @@ type HTTPContractsResponse struct {
 	Contracts   []json.RawMessage `json:"contracts"`
 }
 
-// GetContractsRaw возвращает HTTP transport структуру для договоров
 func (c *Client) GetContractsRaw(ctx context.Context, page, perPage int) (*HTTPContractsResponse, error) {
 	if c.baseURL == "" {
 		return nil, fmt.Errorf("EXTERNAL_API_BASE_URL is empty")
 	}
 
-	// Используем базовый URL и добавляем путь для contracts
 	contractsURL := c.baseURL + "/contracts"
 	u, err := url.Parse(contractsURL)
 	if err != nil {

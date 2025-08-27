@@ -1,7 +1,5 @@
-// internal/models/sync_models.go - ТОЛЬКО для sync сервиса
 package models
 
-// ClientListItem представляет элемент списка клиентов для sync сервиса
 type ClientListItem struct {
 	ClientID          int    `gorm:"column:client_id" json:"id"`
 	Surname           string `json:"surname"`

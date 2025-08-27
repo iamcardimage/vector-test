@@ -6,10 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ===== RECALC OPERATIONS =====
-
-// RecalcNeedsSecondPart пересчитывает флаг needs_second_part для клиентов
-// на основе истечения due_at или устаревания версии второй части
 func RecalcNeedsSecondPart(gdb *gorm.DB) (int64, error) {
 	query := `
 		UPDATE core.clients_versions AS c
@@ -33,8 +29,6 @@ func RecalcNeedsSecondPart(gdb *gorm.DB) (int64, error) {
 	return result.RowsAffected, nil
 }
 
-// RecalcPassportExpiry пересчитывает флаг needs_second_part на основе возраста
-// для граждан 20+ и 45+ лет (смена паспорта)
 func RecalcPassportExpiry(gdb *gorm.DB) (int64, error) {
 	query := `
 		WITH birthdays AS (
@@ -71,7 +65,6 @@ func RecalcPassportExpiry(gdb *gorm.DB) (int64, error) {
 	return result.RowsAffected, nil
 }
 
-// RecalcAll выполняет все виды пересчетов
 func RecalcAll(gdb *gorm.DB) error {
 	n1, err := RecalcNeedsSecondPart(gdb)
 	if err != nil {

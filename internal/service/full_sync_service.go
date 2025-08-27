@@ -32,7 +32,6 @@ type FullSyncRequest struct {
 type FullSyncResponse struct {
 	Success bool `json:"success"`
 
-	// Статистика по пользователям
 	UserPages     int `json:"user_pages"`
 	UserSaved     int `json:"user_saved"`
 	UserApplied   int `json:"user_applied"`
@@ -40,7 +39,6 @@ type FullSyncResponse struct {
 	UserUpdated   int `json:"user_updated"`
 	UserUnchanged int `json:"user_unchanged"`
 
-	// Статистика по договорам
 	ContractPages     int `json:"contract_pages"`
 	ContractSaved     int `json:"contract_saved"`
 	ContractApplied   int `json:"contract_applied"`
@@ -48,7 +46,6 @@ type FullSyncResponse struct {
 	ContractUpdated   int `json:"contract_updated"`
 	ContractUnchanged int `json:"contract_unchanged"`
 
-	// Общая статистика (для обратной совместимости)
 	Pages     int `json:"pages"`
 	Saved     int `json:"saved"`
 	Applied   int `json:"applied"`
@@ -64,13 +61,11 @@ func (s *FullSyncService) SyncFull(ctx context.Context, req FullSyncRequest) (*F
 
 	stats := &FullSyncResponse{Success: true}
 
-	// 1. Синхронизация пользователей (как было)
 	log.Println("[full-sync] Starting users synchronization...")
 	if err := s.syncUsers(ctx, req.PerPage, stats); err != nil {
 		return nil, err
 	}
 
-	// 2. Синхронизация договоров (НОВОЕ)
 	if req.SyncContracts {
 		log.Println("[full-sync] Starting contracts synchronization...")
 		if err := s.syncContracts(ctx, req.PerPage, stats); err != nil {
@@ -78,7 +73,6 @@ func (s *FullSyncService) SyncFull(ctx context.Context, req FullSyncRequest) (*F
 		}
 	}
 
-	// Общая статистика
 	stats.Pages = stats.UserPages + stats.ContractPages
 	stats.Saved = stats.UserSaved + stats.ContractSaved
 	stats.Applied = stats.UserApplied + stats.ContractApplied

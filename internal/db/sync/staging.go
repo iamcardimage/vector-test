@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// UpsertStagingExternalUsers выполняет upsert пользователей в staging таблицу
 func UpsertStagingExternalUsers(gdb *gorm.DB, items []models.StagingExternalUser) error {
 	if len(items) == 0 {
 		return nil

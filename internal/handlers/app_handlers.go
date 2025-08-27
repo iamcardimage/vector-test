@@ -3,7 +3,6 @@ package handlers
 import (
 	"strconv"
 	"strings"
-	"vector/internal/models"
 	"vector/internal/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,38 +18,37 @@ func NewAppHandlers(appService *service.AppService) *AppHandlers {
 	}
 }
 
-// Utility functions
-func asIntPtr(u uint) *int {
-	i := int(u)
-	return &i
-}
+// func asIntPtr(u uint) *int {
+// 	i := int(u)
+// 	return &i
+// }
 
-func (h *AppHandlers) hasRole(u models.AppUser, roles ...string) bool {
-	for _, r := range roles {
-		if u.Role == r {
-			return true
-		}
-	}
-	return false
-}
+// func (h *AppHandlers) hasRole(u models.AppUser, roles ...string) bool {
+// 	for _, r := range roles {
+// 		if u.Role == r {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
-func (h *AppHandlers) requireRoles(c *fiber.Ctx, roles ...string) (models.AppUser, bool) {
-	u := c.Locals("user").(models.AppUser)
-	if len(roles) == 0 || h.hasRole(u, roles...) || u.Role == models.RoleAdministrator {
-		return u, true
-	}
-	c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-	return u, false
-}
+// func (h *AppHandlers) requireRoles(c *fiber.Ctx, roles ...string) (models.AppUser, bool) {
+// 	u := c.Locals("user").(models.AppUser)
+// 	if len(roles) == 0 || h.hasRole(u, roles...) || u.Role == models.RoleAdministrator {
+// 		return u, true
+// 	}
+// 	c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+// 	return u, false
+// }
 
-func (h *AppHandlers) canMutate(c *fiber.Ctx) (models.AppUser, bool) {
-	u := c.Locals("user").(models.AppUser)
-	if u.Role == "viewer" {
-		c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-		return u, false
-	}
-	return u, true
-}
+// func (h *AppHandlers) canMutate(c *fiber.Ctx) (models.AppUser, bool) {
+// 	u := c.Locals("user").(models.AppUser)
+// 	if u.Role == "viewer" {
+// 		c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+// 		return u, false
+// 	}
+// 	return u, true
+// }
 
 func (h *AppHandlers) GetClient(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))

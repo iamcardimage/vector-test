@@ -17,13 +17,13 @@ func NewCheckRepository(database *gorm.DB) CheckRepository {
 }
 
 func (r *checkRepository) CreateSecondPartCheck(clientID, spVersion int, kind string, payload *datatypes.JSON, runBy *int) (models.SecondPartCheck, error) {
-	return appdb.CreateSecondPartCheck(r.database, clientID, spVersion, kind, payload, runBy) // ИСПРАВЛЕНО
+	return appdb.CreateSecondPartCheck(r.database, clientID, spVersion, kind, payload, runBy)
 }
 
 func (r *checkRepository) UpdateResult(checkID uint, status string, result *datatypes.JSON) (models.SecondPartCheck, error) {
-	return appdb.UpdateSecondPartCheckResult(r.database, checkID, status, result) // ИСПРАВЛЕНО
+	return appdb.UpdateSecondPartCheckResult(r.database, checkID, status, result)
 }
 
 func (r *checkRepository) ListByClient(clientID int, spVersion *int) ([]models.SecondPartCheck, error) {
-	return appdb.ListSecondPartChecks(r.database, clientID, spVersion) // ИСПРАВЛЕНО
+	return appdb.ListSecondPartChecks(r.database, clientID, spVersion)
 }

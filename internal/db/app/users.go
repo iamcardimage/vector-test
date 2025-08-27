@@ -9,16 +9,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// ===== USER MANAGEMENT =====
-
-// GetUserByToken находит пользователя по токену
 func GetUserByToken(gdb *gorm.DB, token string) (models.AppUser, error) {
 	var u models.AppUser
 	err := gdb.Where("token = ?", token).Take(&u).Error
 	return u, err
 }
 
-// SeedAppUsers создает начальных пользователей
 func SeedAppUsers(gdb *gorm.DB) error {
 	users := []models.AppUser{
 		{Email: "admin@vector.com", Role: models.RoleAdministrator, Token: "admin-token"},
@@ -36,7 +32,6 @@ func SeedAppUsers(gdb *gorm.DB) error {
 	return nil
 }
 
-// isValidRole проверяет валидность роли
 func isValidRole(role string) bool {
 	switch role {
 	case models.RoleAdministrator, models.RolePodft, models.RoleClientManagement:
@@ -45,7 +40,6 @@ func isValidRole(role string) bool {
 	return false
 }
 
-// CreateAppUser создает нового пользователя
 func CreateAppUser(gdb *gorm.DB, email, role, token string) (models.AppUser, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {
@@ -68,13 +62,11 @@ func CreateAppUser(gdb *gorm.DB, email, role, token string) (models.AppUser, err
 	return u, nil
 }
 
-// ListAppUsers возвращает список всех пользователей
 func ListAppUsers(gdb *gorm.DB) ([]models.AppUser, error) {
 	var xs []models.AppUser
 	return xs, gdb.Order("id ASC").Find(&xs).Error
 }
 
-// UpdateUserRole обновляет роль пользователя
 func UpdateUserRole(gdb *gorm.DB, id uint, role string) (models.AppUser, error) {
 	if !isValidRole(role) {
 		return models.AppUser{}, fmt.Errorf("invalid role")
@@ -87,7 +79,6 @@ func UpdateUserRole(gdb *gorm.DB, id uint, role string) (models.AppUser, error) 
 	return u, gdb.Save(&u).Error
 }
 
-// RotateUserToken обновляет токен пользователя
 func RotateUserToken(gdb *gorm.DB, id uint) (models.AppUser, error) {
 	var u models.AppUser
 	if err := gdb.First(&u, id).Error; err != nil {
@@ -97,7 +88,6 @@ func RotateUserToken(gdb *gorm.DB, id uint) (models.AppUser, error) {
 	return u, gdb.Save(&u).Error
 }
 
-// DeleteAppUser удаляет пользователя
 func DeleteAppUser(gdb *gorm.DB, id uint) error {
 	return gdb.Delete(&models.AppUser{}, id).Error
 }

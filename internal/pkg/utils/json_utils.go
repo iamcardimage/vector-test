@@ -30,7 +30,6 @@ func ExtractUserID(raw json.RawMessage) (int, error) {
 	}
 }
 
-// НОВАЯ ФУНКЦИЯ: полный парсинг ClientVersion
 func ParseClientVersion(raw json.RawMessage) models.ClientVersion {
 	var m map[string]any
 	if err := json.Unmarshal(raw, &m); err != nil {
@@ -38,10 +37,9 @@ func ParseClientVersion(raw json.RawMessage) models.ClientVersion {
 	}
 
 	client := models.ClientVersion{
-		Raw: datatypes.JSON(raw), // Всегда сохраняем полные данные
+		Raw: datatypes.JSON(raw),
 	}
 
-	// Основные поля
 	client.Surname = ExtractString(m, "surname")
 	client.Name = ExtractString(m, "name")
 	client.Patronymic = ExtractString(m, "patronymic")
@@ -59,7 +57,6 @@ func ParseClientVersion(raw json.RawMessage) models.ClientVersion {
 	client.PassIssuer = ExtractString(m, "pass_issuer")
 	client.MainPhone = ExtractString(m, "main_phone")
 
-	// Новые поля
 	client.ID = ExtractInt(m, "id")
 	client.Login = ExtractString(m, "login")
 	client.LockedAt = ExtractTimePtr(m, "locked_at")
@@ -102,7 +99,6 @@ func ParseClientVersion(raw json.RawMessage) models.ClientVersion {
 	client.SignatureType = ExtractString(m, "signature_type")
 	client.DataReceivedDigitalProfile = ExtractBoolPtr(m, "data_recieved_digital_profile")
 
-	// JSON поля
 	client.FromCompanySettings = ExtractJSONField(m, "from_company_settings")
 	client.Settings = ExtractJSONField(m, "settings")
 	client.PersonInfo = ExtractJSONField(m, "person_info")
@@ -112,13 +108,11 @@ func ParseClientVersion(raw json.RawMessage) models.ClientVersion {
 	client.AdSource = ExtractJSONField(m, "ad_source")
 	client.SignatureAllowedNumbers = ExtractJSONField(m, "signature_allowed_numbers")
 
-	// Риск уровень из внешней системы
 	client.ExternalRiskLevel = client.RiskLevel
 
 	return client
 }
 
-// Вспомогательные функции
 func ExtractString(m map[string]any, key string) string {
 	if v, ok := m[key]; ok {
 		if s, ok := v.(string); ok {
@@ -126,7 +120,6 @@ func ExtractString(m map[string]any, key string) string {
 		}
 	}
 
-	// Проверяем в person_info
 	if pi, ok := m["person_info"].(map[string]any); ok {
 		if v, ok := pi[key]; ok {
 			if s, ok := v.(string); ok {
@@ -186,7 +179,6 @@ func ExtractBoolPtr(m map[string]any, key string) *bool {
 
 func ExtractTimePtr(m map[string]any, key string) *time.Time {
 	if str := ExtractString(m, key); str != "" {
-		// Пробуем разные форматы
 		formats := []string{
 			"2006-01-02T15:04:05.000Z07:00",
 			"2006-01-02T15:04:05Z07:00",
@@ -231,7 +223,6 @@ func ExtractContractID(raw json.RawMessage) (int, error) {
 	}
 }
 
-// ParseContract извлекает все поля из JSON для Contract
 func ParseContract(raw json.RawMessage) models.Contract {
 	var m map[string]any
 	if err := json.Unmarshal(raw, &m); err != nil {
@@ -239,10 +230,9 @@ func ParseContract(raw json.RawMessage) models.Contract {
 	}
 
 	contract := models.Contract{
-		Raw: datatypes.JSON(raw), // Всегда сохраняем полные данные
+		Raw: datatypes.JSON(raw),
 	}
 
-	// Основные поля
 	contract.ExternalID = ExtractInt(m, "id")
 	contract.UserID = ExtractInt(m, "contract_owner_id")
 	contract.Comment = ExtractStringPtr(m, "comment")
@@ -271,7 +261,6 @@ func ParseContract(raw json.RawMessage) models.Contract {
 	return contract
 }
 
-// Дополнительные helper функции
 func ExtractStringPtr(m map[string]any, key string) *string {
 	if str := ExtractString(m, key); str != "" {
 		return &str

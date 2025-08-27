@@ -1,4 +1,3 @@
-// internal/models/contract.go
 package models
 
 import (
@@ -8,7 +7,6 @@ import (
 )
 
 type Contract struct {
-	// Основные поля
 	ID                         int `gorm:"primaryKey;column:id"`
 	UserID                     int `gorm:"not null;index"`
 	Comment                    *string
@@ -25,7 +23,7 @@ type Contract struct {
 	ContractOwnerType          string `gorm:"not null"`
 	ContractOwnerID            int    `gorm:"not null"`
 	Anketa                     *string
-	OwnerID                    *int // parent contract
+	OwnerID                    *int
 	CalculatedProfileID        *int
 	DepoAccountsType           *string
 	StrategyID                 *int
@@ -34,12 +32,10 @@ type Contract struct {
 	TariffName                 *string
 	UserLogin                  *string
 
-	// JSON поля для полных данных
 	Raw datatypes.JSON `gorm:"type:jsonb"`
 
-	// Системные поля для синхронизации
 	ExternalID int       `gorm:"not null;unique;index"`
-	Hash       string    `gorm:"not null"` // для отслеживания изменений
+	Hash       string    `gorm:"not null"`
 	SyncedAt   time.Time `gorm:"not null"`
 }
 
@@ -47,7 +43,6 @@ func (Contract) TableName() string {
 	return "core.contracts"
 }
 
-// Добавляем к staging моделям
 type StagingExternalContract struct {
 	ID       int            `gorm:"primaryKey"`
 	Raw      datatypes.JSON `gorm:"type:jsonb"`

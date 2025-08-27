@@ -50,19 +50,17 @@ type SyncApplyResponse struct {
 }
 
 func (s *ApplyService) SyncApply(ctx context.Context, req SyncApplyRequest) (*SyncApplyResponse, error) {
-	// 1. Получаем данные из внешнего API
+
 	resp, err := s.externalAPI.GetUsersRaw(ctx, req.Page, req.PerPage)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Сохраняем в staging
 	stagingBatch := s.prepareStagingBatch(resp.Users)
 	if err := s.stagingRepo.UpsertUsers(ctx, stagingBatch); err != nil {
 		return nil, err
 	}
 
-	// 3. Применяем изменения через repository (Clean Architecture!)
 	applyBatch := s.prepareApplyBatch(resp.Users)
 	stats, err := s.clientRepo.ApplyUsersBatch(ctx, applyBatch)
 	if err != nil {

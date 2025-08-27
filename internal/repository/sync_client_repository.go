@@ -47,13 +47,12 @@ func (r *syncClientRepository) UpdateCurrentVersionStatus(ctx context.Context, c
 }
 
 func (r *syncClientRepository) ListCurrentClients(page, perPage int, needsSecondPart *bool) ([]models.ClientListItem, int64, error) {
-	// ОБНОВЛЕНО: используем новый пакет
+
 	dbItems, total, err := syncdb.ListCurrentClients(r.database, page, perPage, needsSecondPart)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Конвертируем syncdb.ClientListItem в models.ClientListItem
 	items := make([]models.ClientListItem, len(dbItems))
 	for i, dbItem := range dbItems {
 		items[i] = models.ClientListItem{
@@ -89,18 +88,16 @@ func (r *syncClientRepository) ApplyUsersBatch(ctx context.Context, users []Appl
 
 	err := r.database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, userData := range users {
-			// Парсим raw data
+
 			var m map[string]any
 			if err := json.Unmarshal(userData.RawData, &m); err != nil {
 				continue
 			}
 
-			// Получаем текущую версию клиента
 			var cur models.ClientVersion
 			err := tx.Where("client_id = ? AND is_current = true", userData.UserID).Take(&cur).Error
 
 			if err == gorm.ErrRecordNotFound {
-				// Создаем новый клиент
 				newVersion := r.buildClientVersion(userData, m, 1, now)
 				if err := tx.Create(&newVersion).Error; err != nil {
 					return err
@@ -112,14 +109,11 @@ func (r *syncClientRepository) ApplyUsersBatch(ctx context.Context, users []Appl
 				return err
 			}
 
-			// Проверяем изменения по trigger hash
 			if cur.SecondPartTriggerHash == userData.TriggerHash {
 				stats.Unchanged++
 				continue
 			}
 
-			// Есть изменения - создаем новую версию (SCD2)
-			// 1. Закрываем текущую версию
 			if err := tx.Model(&models.ClientVersion{}).
 				Where("client_id = ? AND is_current = true", userData.UserID).
 				Updates(map[string]any{
@@ -129,9 +123,8 @@ func (r *syncClientRepository) ApplyUsersBatch(ctx context.Context, users []Appl
 				return err
 			}
 
-			// 2. Создаем новую версию
 			newVersion := r.buildClientVersion(userData, m, cur.Version+1, now)
-			newVersion.SecondPartCreated = cur.SecondPartCreated // Сохраняем статус второй части
+			newVersion.SecondPartCreated = cur.SecondPartCreated
 
 			if err := tx.Create(&newVersion).Error; err != nil {
 				return err
@@ -144,12 +137,8 @@ func (r *syncClientRepository) ApplyUsersBatch(ctx context.Context, users []Appl
 	return stats, err
 }
 
-// Вспомогательный метод для построения ClientVersion
 func (r *syncClientRepository) buildClientVersion(userData ApplyUserData, m map[string]any, version int, now time.Time) models.ClientVersion {
-	// Используем утилиту для полного парсинга
 	client := utils.ParseClientVersion(userData.RawData)
-
-	// Устанавливаем версионные поля
 	client.ClientID = userData.UserID
 	client.Version = version
 	client.SecondPartTriggerHash = userData.TriggerHash

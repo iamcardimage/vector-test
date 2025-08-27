@@ -49,19 +49,17 @@ type SyncContractsResponse struct {
 }
 
 func (s *ContractService) SyncContracts(ctx context.Context, req SyncContractsRequest) (*SyncContractsResponse, error) {
-	// 1. Получаем данные из внешнего API
+
 	resp, err := s.externalAPI.GetContractsRaw(ctx, req.Page, req.PerPage)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Сохраняем в staging
 	stagingBatch := s.prepareStagingBatch(resp.Contracts)
 	if err := s.stagingRepo.UpsertContracts(ctx, stagingBatch); err != nil {
 		return nil, err
 	}
 
-	// 3. Применяем изменения
 	applyBatch := s.prepareApplyBatch(resp.Contracts)
 	stats, err := s.contractRepo.ApplyContractsBatch(ctx, applyBatch)
 	if err != nil {
@@ -110,7 +108,6 @@ func (s *ContractService) prepareApplyBatch(rawContracts []json.RawMessage) []re
 			continue
 		}
 
-		// Простой хэш для отслеживания изменений (без триггеров)
 		hash := sha256.Sum256(r)
 		hashStr := hex.EncodeToString(hash[:])
 

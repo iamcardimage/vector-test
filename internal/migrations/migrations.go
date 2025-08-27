@@ -71,7 +71,6 @@ func (m *Migrator) MigrateCoreClients() error {
 		return err
 	}
 
-	// Создаем индексы для новых полей
 	queries := []string{
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_versions_current
 		 ON core.clients_versions (client_id)
@@ -157,17 +156,14 @@ func (m *Migrator) MigrateCoreContracts() error {
 		return err
 	}
 
-	// Мигрируем staging таблицу для договоров
 	if err := m.db.AutoMigrate(&models.StagingExternalContract{}); err != nil {
 		return err
 	}
 
-	// Мигрируем основную таблицу договоров
 	if err := m.db.AutoMigrate(&models.Contract{}); err != nil {
 		return err
 	}
 
-	// Создаем индексы для производительности
 	queries := []string{
 		`CREATE INDEX IF NOT EXISTS idx_contracts_user_id
 		 ON core.contracts (user_id)`,
