@@ -1,3 +1,7 @@
+// @title Vector Sync API
+// @version 1.0
+// @description API for sync endpoints
+// @BasePath /
 package main
 
 import (
@@ -10,6 +14,8 @@ import (
 	"vector/internal/repository"
 	"vector/internal/routes"
 	"vector/internal/service"
+
+	"github.com/gofiber/contrib/swagger"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
@@ -37,6 +43,16 @@ func main() {
 			})
 		},
 	})
+
+	// Swagger UI (Sync)
+	cfg := swagger.Config{
+		BasePath: "/",
+		FilePath: "./docs/sync/swagger.json",
+		Path:     "swagger",
+		Title:    "Swagger API Docs",
+	}
+
+	app.Use(swagger.New(cfg))
 
 	routes.SetupSyncRoutes(app, deps.syncHandlers, deps.healthHandlers)
 

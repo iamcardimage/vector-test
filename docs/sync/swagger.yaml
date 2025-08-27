@@ -1,0 +1,32 @@
+basePath: /
+info:
+  contact: {}
+  description: API for sync endpoints
+  title: Vector Sync API
+  version: "1.0"
+paths:
+  /dbping:
+    get:
+      responses:
+        "200":
+          description: db ok
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Database ping
+      tags:
+      - health
+  /healthz:
+    get:
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+      summary: Health check
+      tags:
+      - health
+swagger: "2.0"

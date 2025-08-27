@@ -12,10 +12,21 @@ func NewHealthHandlers() *HealthHandlers {
 	return &HealthHandlers{}
 }
 
+// Health godoc
+// @Summary Health check
+// @Tags health
+// @Success 200 {string} string "ok"
+// @Router /healthz [get]
 func (h *HealthHandlers) Health(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
+// DBPing godoc
+// @Summary Database ping
+// @Tags health
+// @Success 200 {string} string "db ok"
+// @Failure 500 {string} string
+// @Router /dbping [get]
 func (h *HealthHandlers) DBPing(c *fiber.Ctx) error {
 	gdb, err := db.Connect()
 	if err != nil {

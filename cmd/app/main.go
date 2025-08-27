@@ -1,3 +1,7 @@
+// @title Vector App API
+// @version 1.0
+// @description API for app endpoints
+// @BasePath /
 package main
 
 import (
@@ -10,6 +14,7 @@ import (
 	"vector/internal/routes"
 	"vector/internal/service"
 
+	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
@@ -34,6 +39,15 @@ func main() {
 			})
 		},
 	})
+
+	cfg := swagger.Config{
+		BasePath: "/",
+		FilePath: "./docs/app/swagger.json",
+		Path:     "swagger",
+		Title:    "Swagger API Docs",
+	}
+
+	app.Use(swagger.New(cfg))
 
 	routes.SetupAppRoutes(app, deps.appHandlers, deps.healthHandlers, nil)
 

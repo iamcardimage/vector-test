@@ -12,6 +12,7 @@ FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata curl
 WORKDIR /app
 COPY --from=builder /out/sync /app/sync
+COPY --from=builder /src/docs/sync /app/docs/sync
     
 ENV PORT=8080
 EXPOSE 8080

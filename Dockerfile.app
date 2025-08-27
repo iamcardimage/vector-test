@@ -14,6 +14,7 @@ RUN apk add --no-cache ca-certificates tzdata curl
 WORKDIR /app
 COPY --from=builder /out/app /app/app
 COPY --from=builder /out/migrate /app/migrate
+COPY --from=builder /src/docs/app /app/docs/app
 
 ENV PORT=8081
 EXPOSE 8081
