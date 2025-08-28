@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"vector/internal/service"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/datatypes"
 )
 
 type AppHandlers struct {
@@ -50,7 +52,7 @@ func NewAppHandlers(appService *service.AppService) *AppHandlers {
 //		return u, true
 //	}
 //
-// ======Swagger=================
+// =========Swagger=================
 // GetClient godoc
 // @Summary Get client information
 // @Description Get current client information including second part if available
@@ -161,7 +163,6 @@ func (h *AppHandlers) GetSecondPartHistory(c *fiber.Ctx) error {
 // @Success 200 {object} map[string]interface{} "Created user"
 // @Failure 400 {object} map[string]interface{} "Invalid input or creation failed"
 // @Router /auth/register [post]
-
 func (h *AppHandlers) CreateUser(c *fiber.Ctx) error {
 	var in struct {
 		Email string `json:"email"`
@@ -274,4 +275,58 @@ func (h *AppHandlers) DeleteUser(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(fiber.Map{"success": true})
+}
+
+// CreateSecondPartDraft godoc
+// @Summary Create second part draft
+// @Description Create a new second part draft for a client
+// @Tags clients
+// @Accept json
+// @Produce json
+// @Param id path int true "Client ID"
+// @Param draft body object{risk_level=string,data_override=object} false "Draft data"
+// @Success 200 {object} map[string]interface{} "Created second part draft"
+// @Failure 400 {object} map[string]interface{} "Invalid input or creation failed"
+// @Router /clients/{id}/second-part/draft [post]
+func (h *AppHandlers) CreateSecondPartDraft(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid client id"})
+	}
+
+	var in struct {
+		RiskLevel    *string                 `json:"risk_level,omitempty"`
+		DataOverride *map[string]interface{} `json:"data_override,omitempty"`
+	}
+
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid json"})
+	}
+
+	// TODO: Get user from auth middleware
+	var createdBy *int = nil // This will be set from authenticated user later
+
+	var dataOverrideJSON *datatypes.JSON
+	if in.DataOverride != nil {
+		jsonBytes, err := json.Marshal(in.DataOverride)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "invalid data_override"})
+		}
+		dataOverrideJSON = (*datatypes.JSON)(&jsonBytes)
+	}
+
+	sp, err := h.appService.CreateSecondPartDraft(id, in.RiskLevel, createdBy, dataOverrideJSON)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"success":        true,
+		"client_version": sp.ClientVersion,
+		"version":        sp.Version,
+		"status":         sp.Status,
+		"risk_level":     sp.RiskLevel,
+		"due_at":         sp.DueAt,
+		"is_current":     sp.IsCurrent,
+	})
 }

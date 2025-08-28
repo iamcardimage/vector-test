@@ -18,6 +18,7 @@ func SetupAppRoutes(
 
 	app.Get("/clients/:id", appHandlers.GetClient)
 	app.Get("/clients/:id/second-part/history", appHandlers.GetSecondPartHistory)
+	app.Post("/clients/:id/second-part/draft", appHandlers.CreateSecondPartDraft)
 
 	app.Post("/auth/register", appHandlers.CreateUser)
 	app.Get("/auth/users", appHandlers.ListUsers)

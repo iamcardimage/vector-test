@@ -5,6 +5,41 @@ info:
   title: Vector App API
   version: "1.0"
 paths:
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with email, role and optional token
+      parameters:
+      - description: User data
+        in: body
+        name: user
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            role:
+              type: string
+            token:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Created user
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid input or creation failed
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create new user
+      tags:
+      - auth
   /auth/users:
     get:
       consumes:
@@ -146,6 +181,43 @@ paths:
             additionalProperties: true
             type: object
       summary: Get client information
+      tags:
+      - clients
+  /clients/{id}/second-part/draft:
+    post:
+      consumes:
+      - application/json
+      description: Create a new second part draft for a client
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Draft data
+        in: body
+        name: draft
+        schema:
+          properties:
+            data_override:
+              type: object
+            risk_level:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Created second part draft
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid input or creation failed
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create second part draft
       tags:
       - clients
   /clients/{id}/second-part/history:
