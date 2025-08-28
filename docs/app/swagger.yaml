@@ -1,10 +1,185 @@
 basePath: /
 info:
   contact: {}
-  description: API for sync endpoints
+  description: API for app endpoints
   title: Vector App API
   version: "1.0"
 paths:
+  /auth/users:
+    get:
+      consumes:
+      - application/json
+      description: Get list of all users in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of users
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List all users
+      tags:
+      - auth
+  /auth/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an existing user from the system
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success confirmation
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid input or deletion failed
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete user
+      tags:
+      - auth
+  /auth/users/{id}/role:
+    patch:
+      consumes:
+      - application/json
+      description: Update the role of an existing user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New role
+        in: body
+        name: role
+        required: true
+        schema:
+          properties:
+            role:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated user
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid input or update failed
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update user role
+      tags:
+      - auth
+  /auth/users/{id}/rotate-token:
+    post:
+      consumes:
+      - application/json
+      description: Generate new token for an existing user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User with new token
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid input or rotation failed
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Rotate user token
+      tags:
+      - auth
+  /clients/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get current client information including second part if available
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Client information
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid client ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Client not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get client information
+      tags:
+      - clients
+  /clients/{id}/second-part/history:
+    get:
+      consumes:
+      - application/json
+      description: Get history of second part information for specific client
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Second part history
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid client ID
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get second part history for client
+      tags:
+      - clients
   /dbping:
     get:
       responses:
