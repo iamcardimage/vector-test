@@ -340,6 +340,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/clients/{id}/second-part/current": {
+            "get": {
+                "description": "Get the current active second part information for a specific client",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Get current second part for client",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Client ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current second part information",
+                        "schema": {
+                            "$ref": "#/definitions/models.GetSecondPartResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid client ID",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Second part not found",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/clients/{id}/second-part/draft": {
             "post": {
                 "description": "Create a new second part draft for a client",
@@ -1126,6 +1176,67 @@ const docTemplate = `{
                 "user_login": {
                     "type": "string",
                     "example": "user123"
+                }
+            }
+        },
+        "models.GetSecondPartResponse": {
+            "type": "object",
+            "properties": {
+                "approved_by_user_id": {
+                    "type": "integer",
+                    "example": 101
+                },
+                "client_id": {
+                    "type": "integer",
+                    "example": 123
+                },
+                "client_version": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "created_by_user_id": {
+                    "type": "integer",
+                    "example": 456
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "due_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "is_current": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "Additional documents required"
+                },
+                "risk_level": {
+                    "type": "string",
+                    "example": "low"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "draft"
+                },
+                "updated_by_user_id": {
+                    "type": "integer",
+                    "example": 789
+                },
+                "valid_from": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "valid_to": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 2
                 }
             }
         },

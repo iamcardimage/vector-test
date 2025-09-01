@@ -197,6 +197,23 @@ type ListClientsResponse struct {
 	TotalPages int                    `json:"total_pages" example:"15"`
 }
 
+type GetSecondPartResponse struct {
+	ClientID         int                     `json:"client_id" example:"123"`
+	ClientVersion    int                     `json:"client_version" example:"1"`
+	Version          int                     `json:"version" example:"2"`
+	Status           string                  `json:"status" example:"draft"`
+	RiskLevel        string                  `json:"risk_level" example:"low"`
+	IsCurrent        bool                    `json:"is_current" example:"true"`
+	DueAt            *time.Time              `json:"due_at,omitempty" swaggertype:"string" format:"date-time"`
+	ValidFrom        time.Time               `json:"valid_from" swaggertype:"string" format:"date-time"`
+	ValidTo          *time.Time              `json:"valid_to,omitempty" swaggertype:"string" format:"date-time"`
+	Data             *map[string]interface{} `json:"data,omitempty"`
+	Reason           string                  `json:"reason,omitempty" example:"Additional documents required"`
+	CreatedByUserID  *int                    `json:"created_by_user_id,omitempty" example:"456"`
+	UpdatedByUserID  *int                    `json:"updated_by_user_id,omitempty" example:"789"`
+	ApprovedByUserID *int                    `json:"approved_by_user_id,omitempty" example:"101"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error" example:"client not found"`
 }

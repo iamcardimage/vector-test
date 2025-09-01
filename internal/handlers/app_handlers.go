@@ -676,3 +676,57 @@ func (h *AppHandlers) ListClients(c *fiber.Ctx) error {
 
 	return c.JSON(response)
 }
+
+// ... existing code ...
+
+// GetSecondPartCurrent godoc
+// @Summary Get current second part for client
+// @Description Get the current active second part information for a specific client
+// @Tags clients
+// @Accept json
+// @Produce json
+// @Param id path int true "Client ID"
+// @Success 200 {object} models.GetSecondPartResponse "Current second part information"
+// @Failure 400 {object} models.ErrorResponse "Invalid client ID"
+// @Failure 404 {object} models.ErrorResponse "Second part not found"
+// @Failure 500 {object} models.ErrorResponse "Internal server error"
+// @Router /clients/{id}/second-part/current [get]
+func (h *AppHandlers) GetSecondPartCurrent(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(400).JSON(models.ErrorResponse{Error: "invalid client id"})
+	}
+
+	secondPart, err := h.appService.GetSecondPartCurrent(id)
+	if err != nil {
+		return c.Status(404).JSON(models.ErrorResponse{Error: "second part not found"})
+	}
+
+	// Преобразуем JSON данные в map
+	var dataMap *map[string]interface{}
+	if len(secondPart.Data) > 0 {
+		var data map[string]interface{}
+		if err := json.Unmarshal(secondPart.Data, &data); err == nil {
+			dataMap = &data
+		}
+	}
+
+	response := models.GetSecondPartResponse{
+		ClientID:         secondPart.ClientID,
+		ClientVersion:    secondPart.ClientVersion,
+		Version:          secondPart.Version,
+		Status:           secondPart.Status,
+		RiskLevel:        secondPart.RiskLevel,
+		IsCurrent:        secondPart.IsCurrent,
+		DueAt:            secondPart.DueAt,
+		ValidFrom:        secondPart.ValidFrom,
+		ValidTo:          secondPart.ValidTo,
+		Data:             dataMap,
+		Reason:           secondPart.Reason,
+		CreatedByUserID:  secondPart.CreatedByUserID,
+		UpdatedByUserID:  secondPart.UpdatedByUserID,
+		ApprovedByUserID: secondPart.ApprovedByUserID,
+	}
+
+	return c.JSON(response)
+}
