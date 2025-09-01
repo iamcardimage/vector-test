@@ -1,4 +1,375 @@
 basePath: /
+definitions:
+  vector_internal_models.ErrorResponse:
+    properties:
+      error:
+        example: client not found
+        type: string
+    type: object
+  vector_internal_models.GetClientResponse:
+    properties:
+      ad_source:
+        additionalProperties: true
+        type: object
+      agent_id:
+        example: 456
+        type: integer
+      agent_point_id:
+        example: 789
+        type: integer
+      birth_place:
+        example: Test City
+        type: string
+      birthday:
+        example: "1990-01-01"
+        type: string
+      block_type:
+        example: ""
+        type: string
+      blocked:
+        example: false
+        type: boolean
+      blocked_reason:
+        example: ""
+        type: string
+      checks:
+        additionalProperties: true
+        type: object
+      city:
+        example: Москва
+        type: string
+      client_id:
+        example: 12345
+        type: integer
+      contact_email:
+        example: test@example.com
+        type: string
+      corps:
+        example: 1
+        type: integer
+      country:
+        example: Россия
+        type: string
+      created_lk_at:
+        example: "2024-01-01T10:00:00.000+03:00"
+        type: string
+      current_sign_in_at:
+        format: date-time
+        type: string
+      data_received_digital_profile:
+        example: true
+        type: boolean
+      district:
+        example: Тверской
+        type: string
+      document_country:
+        example: RU
+        type: string
+      document_type:
+        example: passport
+        type: string
+      esia_id:
+        example: 98765
+        type: integer
+      external_id:
+        example: 54321
+        type: integer
+      external_id_str:
+        example: EXT_12345
+        type: string
+      external_risk_level:
+        example: low
+        type: string
+      fill_stage:
+        example: completed
+        type: string
+      flat:
+        example: 25
+        type: integer
+      from_company_settings:
+        additionalProperties: true
+        type: object
+      hash:
+        example: abc123def456
+        type: string
+      house:
+        example: "10"
+        type: string
+      id:
+        example: 12345
+        type: integer
+      identification_type:
+        example: passport
+        type: string
+      index:
+        example: 123456
+        type: integer
+      inn:
+        example: "123456789012"
+        type: string
+      is_american_national:
+        example: false
+        type: boolean
+      is_current:
+        example: true
+        type: boolean
+      is_filled:
+        example: true
+        type: boolean
+      is_rf_resident:
+        example: true
+        type: boolean
+      is_rf_taxpayer:
+        example: true
+        type: boolean
+      is_valid_info:
+        example: true
+        type: boolean
+      legal_capacity:
+        example: full
+        type: string
+      locked_at:
+        format: date-time
+        type: string
+      login:
+        example: user_login
+        type: string
+      main_phone:
+        example: "1234567890"
+        type: string
+      male:
+        example: true
+        type: boolean
+      manager:
+        additionalProperties: true
+        type: object
+      name:
+        example: Иван
+        type: string
+      need_to_set_password:
+        example: false
+        type: boolean
+      needs_second_part:
+        example: true
+        type: boolean
+      note:
+        additionalProperties: true
+        type: object
+      pass_issue_date:
+        example: 01.01.2020
+        type: string
+      pass_issuer:
+        example: MVD Test District
+        type: string
+      pass_issuer_code:
+        example: 100-001
+        type: string
+      pass_number:
+        example: "123456"
+        type: string
+      pass_series:
+        example: "1234"
+        type: string
+      patronymic:
+        example: Иванович
+        type: string
+      person_info:
+        additionalProperties: true
+        type: object
+      pifs_portfolio_code:
+        example: 123
+        type: integer
+      qualified_investor:
+        example: false
+        type: boolean
+      raw:
+        additionalProperties: true
+        type: object
+      region:
+        example: Московская область
+        type: string
+      risk_level:
+        example: low
+        type: string
+      second_part:
+        properties:
+          client_version:
+            example: 1
+            type: integer
+          due_at:
+            format: date-time
+            type: string
+          is_current:
+            example: true
+            type: boolean
+          risk_level:
+            example: low
+            type: string
+          status:
+            example: draft
+            type: string
+          version:
+            example: 1
+            type: integer
+        type: object
+      second_part_created:
+        example: true
+        type: boolean
+      second_part_trigger_hash:
+        example: xyz789abc123
+        type: string
+      settings:
+        additionalProperties: true
+        type: object
+      sign_in_count:
+        example: 5
+        type: integer
+      signature_allowed_numbers:
+        additionalProperties: true
+        type: object
+      signature_type:
+        example: electronic
+        type: string
+      snils:
+        example: "12345678901"
+        type: string
+      status:
+        example: unchanged
+        type: string
+      street:
+        example: ул. Тверская
+        type: string
+      surname:
+        example: Иванов
+        type: string
+      synced_at:
+        format: date-time
+        type: string
+      tax_status:
+        example: resident
+        type: string
+      updated_lk_at:
+        example: "2024-01-01T12:00:00.000+03:00"
+        type: string
+      valid_from:
+        format: date-time
+        type: string
+      valid_to:
+        format: date-time
+        type: string
+      version:
+        example: 1
+        type: integer
+    type: object
+  vector_internal_models.GetContractResponse:
+    properties:
+      anketa:
+        example: ANK456
+        type: string
+      calculated_profile_id:
+        example: 222
+        type: integer
+      closed_at:
+        format: date-time
+        type: string
+      comment:
+        example: Основной договор
+        type: string
+      contract_owner_id:
+        example: 789
+        type: integer
+      contract_owner_type:
+        example: individual
+        type: string
+      created_at:
+        format: date-time
+        type: string
+      depo_accounts_type:
+        example: standard
+        type: string
+      external_id:
+        example: 54321
+        type: integer
+      hash:
+        example: abc123def456
+        type: string
+      id:
+        example: 123
+        type: integer
+      inner_code:
+        example: BRK-001
+        type: string
+      is_personal_invest_account:
+        example: true
+        type: boolean
+      is_personal_invest_account_new:
+        example: false
+        type: boolean
+      kind:
+        example: broking
+        type: string
+      owner_id:
+        example: 111
+        type: integer
+      raw:
+        additionalProperties: true
+        type: object
+      rialto_code:
+        example: RLT123
+        type: string
+      signed_at:
+        format: date-time
+        type: string
+      status:
+        example: active
+        type: string
+      strategy_id:
+        example: 333
+        type: integer
+      strategy_name:
+        example: Conservative
+        type: string
+      synced_at:
+        format: date-time
+        type: string
+      tariff_id:
+        example: 444
+        type: integer
+      tariff_name:
+        example: Basic
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+      user_id:
+        example: 12345
+        type: integer
+      user_login:
+        example: user123
+        type: string
+    type: object
+  vector_internal_models.ListContractsResponse:
+    properties:
+      contracts:
+        items:
+          $ref: '#/definitions/vector_internal_models.GetContractResponse'
+        type: array
+      page:
+        example: 1
+        type: integer
+      per_page:
+        example: 10
+        type: integer
+      success:
+        example: true
+        type: boolean
+      total:
+        example: 150
+        type: integer
+      total_pages:
+        example: 15
+        type: integer
+    type: object
 info:
   contact: {}
   description: API for app endpoints
@@ -155,7 +526,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get current client information including second part if available
+      description: Get complete client information including all available fields
+        and second part if available
       parameters:
       - description: Client ID
         in: path
@@ -166,20 +538,17 @@ paths:
       - application/json
       responses:
         "200":
-          description: Client information
+          description: Complete client information
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/vector_internal_models.GetClientResponse'
         "400":
           description: Invalid client ID
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/vector_internal_models.ErrorResponse'
         "404":
           description: Client not found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/vector_internal_models.ErrorResponse'
       summary: Get client information
       tags:
       - clients
@@ -252,6 +621,77 @@ paths:
       summary: Get second part history for client
       tags:
       - clients
+  /contracts:
+    get:
+      consumes:
+      - application/json
+      description: Get list of contracts with optional filtering
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: per_page
+        type: integer
+      - description: Filter by user ID
+        in: query
+        name: user_id
+        type: integer
+      - description: Filter by status (active, closed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of contracts
+          schema:
+            $ref: '#/definitions/vector_internal_models.ListContractsResponse'
+        "400":
+          description: Invalid parameters
+          schema:
+            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+      summary: List contracts
+      tags:
+      - contracts
+  /contracts/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get complete contract information by contract ID
+      parameters:
+      - description: Contract ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Complete contract information
+          schema:
+            $ref: '#/definitions/vector_internal_models.GetContractResponse'
+        "400":
+          description: Invalid contract ID
+          schema:
+            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+        "404":
+          description: Contract not found
+          schema:
+            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+      summary: Get contract information
+      tags:
+      - contracts
   /dbping:
     get:
       responses:

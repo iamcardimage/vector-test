@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+	"time"
+
+	"vector/internal/models"
 	"vector/internal/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -51,68 +54,155 @@ func NewAppHandlers(appService *service.AppService) *AppHandlers {
 //		}
 //		return u, true
 //	}
-//
+
 // =========Swagger=================
 // GetClient godoc
 // @Summary Get client information
-// @Description Get current client information including second part if available
+// @Description Get complete client information including all available fields and second part if available
 // @Tags clients
 // @Accept json
 // @Produce json
 // @Param id path int true "Client ID"
-// @Success 200 {object} map[string]interface{} "Client information"
-// @Failure 400 {object} map[string]interface{} "Invalid client ID"
-// @Failure 404 {object} map[string]interface{} "Client not found"
+// @Success 200 {object} models.GetClientResponse "Complete client information"
+// @Failure 400 {object} models.ErrorResponse "Invalid client ID"
+// @Failure 404 {object} models.ErrorResponse "Client not found"
 // @Router /clients/{id} [get]
 func (h *AppHandlers) GetClient(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid client id"})
+		return c.Status(400).JSON(models.ErrorResponse{Error: "invalid client id"})
 	}
 
 	cur, err := h.appService.GetClientCurrent(id)
 	if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "client not found"})
+		return c.Status(404).JSON(models.ErrorResponse{Error: "client not found"})
 	}
 
-	var sp fiber.Map
+	response := models.GetClientResponse{
+
+		ID:            cur.ID,
+		ClientID:      cur.ClientID,
+		Version:       cur.Version,
+		ExternalID:    cur.ID,
+		ExternalIDStr: cur.ExternalIDStr,
+
+		Surname:    cur.Surname,
+		Name:       cur.Name,
+		Patronymic: cur.Patronymic,
+		Birthday:   cur.Birthday,
+		BirthPlace: cur.BirthPlace,
+
+		Inn:             cur.Inn,
+		Snils:           cur.Snils,
+		PassSeries:      cur.PassSeries,
+		PassNumber:      cur.PassNumber,
+		PassIssueDate:   cur.PassIssueDate,
+		PassIssuer:      cur.PassIssuer,
+		PassIssuerCode:  cur.PassIssuerCode,
+		DocumentType:    cur.DocumentType,
+		DocumentCountry: cur.DocumentCountry,
+
+		ContactEmail: cur.ContactEmail,
+		MainPhone:    cur.MainPhone,
+		Login:        cur.Login,
+
+		Blocked:            cur.Blocked,
+		BlockedReason:      cur.BlockedReason,
+		BlockType:          cur.BlockType,
+		Male:               cur.Male,
+		IsRfResident:       cur.IsRfResident,
+		IsRfTaxpayer:       cur.IsRfTaxpayer,
+		IsValidInfo:        cur.IsValidInfo,
+		QualifiedInvestor:  cur.QualifiedInvestor,
+		IsFilled:           cur.IsFilled,
+		IsAmericanNational: cur.IsAmericanNational,
+		NeedToSetPassword:  cur.NeedToSetPassword,
+
+		LegalCapacity:      cur.LegalCapacity,
+		PifsPortfolioCode:  cur.PifsPortfolioCode,
+		RiskLevel:          cur.RiskLevel,
+		ExternalRiskLevel:  cur.ExternalRiskLevel,
+		FillStage:          cur.FillStage,
+		IdentificationType: cur.IdentificationType,
+		TaxStatus:          cur.TaxStatus,
+
+		EsiaID:       cur.EsiaID,
+		AgentID:      cur.AgentID,
+		AgentPointID: cur.AgentPointID,
+
+		Country:  cur.Country,
+		Region:   cur.Region,
+		Index:    cur.Index,
+		City:     cur.City,
+		Street:   cur.Street,
+		House:    cur.House,
+		Corps:    cur.Corps,
+		Flat:     cur.Flat,
+		District: cur.District,
+
+		SignatureType:              cur.SignatureType,
+		DataReceivedDigitalProfile: cur.DataReceivedDigitalProfile,
+		LockedAt:                   cur.LockedAt,
+		CurrentSignInAt:            cur.CurrentSignInAt,
+		SignInCount:                cur.SignInCount,
+
+		CreatedLKAt: cur.CreatedLKAt,
+		UpdatedLKAt: cur.UpdatedLKAt,
+		SyncedAt:    cur.SyncedAt,
+		ValidFrom:   cur.ValidFrom,
+		ValidTo:     cur.ValidTo,
+		IsCurrent:   cur.IsCurrent,
+
+		Hash:                  cur.Hash,
+		Status:                cur.Status,
+		SecondPartTriggerHash: cur.SecondPartTriggerHash,
+
+		NeedsSecondPart:   cur.NeedsSecondPart,
+		SecondPartCreated: cur.SecondPartCreated,
+	}
+
+	response.FromCompanySettings = convertJSONToMap(cur.FromCompanySettings)
+	response.Settings = convertJSONToMap(cur.Settings)
+	response.PersonInfo = convertJSONToMap(cur.PersonInfo)
+	response.Manager = convertJSONToMap(cur.Manager)
+	response.Checks = convertJSONToMap(cur.Checks)
+	response.Note = convertJSONToMap(cur.Note)
+	response.AdSource = convertJSONToMap(cur.AdSource)
+	response.SignatureAllowedNumbers = convertJSONToMap(cur.SignatureAllowedNumbers)
+	response.Raw = convertJSONToMap(cur.Raw)
+
 	if curSP, err := h.appService.GetSecondPartCurrent(id); err == nil {
-		sp = fiber.Map{
-			"client_version": curSP.ClientVersion,
-			"version":        curSP.Version,
-			"status":         curSP.Status,
-			"risk_level":     curSP.RiskLevel,
-			"due_at":         curSP.DueAt,
-			"is_current":     curSP.IsCurrent,
-		}
-		if curSP.ClientVersion != cur.Version {
-			sp["stale"] = true
+		response.SecondPart = &struct {
+			ClientVersion int        `json:"client_version" example:"1"`
+			Version       int        `json:"version" example:"1"`
+			Status        string     `json:"status" example:"draft"`
+			RiskLevel     string     `json:"risk_level" example:"low"`
+			IsCurrent     bool       `json:"is_current" example:"true"`
+			DueAt         *time.Time `json:"due_at" swaggertype:"string" format:"date-time"`
+		}{
+			ClientVersion: curSP.ClientVersion,
+			Version:       curSP.Version,
+			Status:        curSP.Status,
+			RiskLevel:     curSP.RiskLevel,
+			IsCurrent:     curSP.IsCurrent,
+			DueAt:         curSP.DueAt,
 		}
 	}
 
-	return c.JSON(fiber.Map{
-		"id":                  cur.ClientID,
-		"version":             cur.Version,
-		"surname":             cur.Surname,
-		"name":                cur.Name,
-		"patronymic":          cur.Patronymic,
-		"birthday":            cur.Birthday,
-		"birth_place":         cur.BirthPlace,
-		"inn":                 cur.Inn,
-		"snils":               cur.Snils,
-		"created_lk_at":       cur.CreatedLKAt,
-		"updated_lk_at":       cur.UpdatedLKAt,
-		"pass_issuer_code":    cur.PassIssuerCode,
-		"pass_series":         cur.PassSeries,
-		"pass_number":         cur.PassNumber,
-		"pass_issue_date":     cur.PassIssueDate,
-		"pass_issuer":         cur.PassIssuer,
-		"contact_email":       cur.ContactEmail,
-		"main_phone":          cur.MainPhone,
-		"needs_second_part":   cur.NeedsSecondPart,
-		"second_part_created": cur.SecondPartCreated,
-		"second_part":         sp,
-	})
+	return c.JSON(response)
+}
+
+func convertJSONToMap(jsonData datatypes.JSON) *map[string]interface{} {
+	if len(jsonData) == 0 {
+		return nil
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(jsonData, &result); err != nil {
+		return nil
+	}
+
+	return &result
 }
 
 // @Summary Get second part history for client
@@ -329,4 +419,162 @@ func (h *AppHandlers) CreateSecondPartDraft(c *fiber.Ctx) error {
 		"due_at":         sp.DueAt,
 		"is_current":     sp.IsCurrent,
 	})
+}
+
+// GetContract godoc
+// @Summary Get contract information
+// @Description Get complete contract information by contract ID
+// @Tags contracts
+// @Accept json
+// @Produce json
+// @Param id path int true "Contract ID"
+// @Success 200 {object} models.GetContractResponse "Complete contract information"
+// @Failure 400 {object} models.ErrorResponse "Invalid contract ID"
+// @Failure 404 {object} models.ErrorResponse "Contract not found"
+// @Router /contracts/{id} [get]
+func (h *AppHandlers) GetContract(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(400).JSON(models.ErrorResponse{Error: "invalid contract id"})
+	}
+
+	contract, err := h.appService.GetContract(id)
+	if err != nil {
+		return c.Status(404).JSON(models.ErrorResponse{Error: "contract not found"})
+	}
+
+	response := models.GetContractResponse{
+		ID:         contract.ID,
+		ExternalID: contract.ExternalID,
+		UserID:     contract.UserID,
+
+		InnerCode:         contract.InnerCode,
+		Kind:              contract.Kind,
+		Status:            contract.Status,
+		ContractOwnerType: contract.ContractOwnerType,
+		ContractOwnerID:   contract.ContractOwnerID,
+		Comment:           contract.Comment,
+
+		IsPersonalInvestAccount:    contract.IsPersonalInvestAccount,
+		IsPersonalInvestAccountNew: contract.IsPersonalInvestAccountNew,
+
+		RialtoCode: contract.RialtoCode,
+		Anketa:     contract.Anketa,
+		OwnerID:    contract.OwnerID,
+		UserLogin:  contract.UserLogin,
+
+		CalculatedProfileID: contract.CalculatedProfileID,
+		DepoAccountsType:    contract.DepoAccountsType,
+		StrategyID:          contract.StrategyID,
+		StrategyName:        contract.StrategyName,
+		TariffID:            contract.TariffID,
+		TariffName:          contract.TariffName,
+
+		CreatedAt: contract.CreatedAt,
+		UpdatedAt: contract.UpdatedAt,
+		SignedAt:  contract.SignedAt,
+		ClosedAt:  contract.ClosedAt,
+		SyncedAt:  contract.SyncedAt,
+
+		Hash: contract.Hash,
+		Raw:  convertJSONToMap(contract.Raw),
+	}
+
+	return c.JSON(response)
+}
+
+// ListContracts godoc
+// @Summary List contracts
+// @Description Get list of contracts with optional filtering
+// @Tags contracts
+// @Accept json
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param per_page query int false "Items per page" default(10)
+// @Param user_id query int false "Filter by user ID"
+// @Param status query string false "Filter by status (active, closed)"
+// @Success 200 {object} models.ListContractsResponse "List of contracts"
+// @Failure 400 {object} models.ErrorResponse "Invalid parameters"
+// @Failure 500 {object} models.ErrorResponse "Internal server error"
+// @Router /contracts [get]
+func (h *AppHandlers) ListContracts(c *fiber.Ctx) error {
+	page := c.QueryInt("page", 1)
+	perPage := c.QueryInt("per_page", 10)
+
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 10
+	}
+
+	var userID *int
+	if userIDStr := c.Query("user_id"); userIDStr != "" {
+		if uid, err := strconv.Atoi(userIDStr); err == nil {
+			userID = &uid
+		}
+	}
+
+	var status *string
+	if statusStr := c.Query("status"); statusStr != "" {
+		status = &statusStr
+	}
+
+	contracts, total, err := h.appService.ListContracts(page, perPage, userID, status)
+	if err != nil {
+		return c.Status(500).JSON(models.ErrorResponse{Error: "failed to get contracts: " + err.Error()})
+	}
+
+	contractResponses := make([]models.GetContractResponse, len(contracts))
+	for i, contract := range contracts {
+		contractResponses[i] = models.GetContractResponse{
+			ID:         contract.ID,
+			ExternalID: contract.ExternalID,
+			UserID:     contract.UserID,
+
+			InnerCode:         contract.InnerCode,
+			Kind:              contract.Kind,
+			Status:            contract.Status,
+			ContractOwnerType: contract.ContractOwnerType,
+			ContractOwnerID:   contract.ContractOwnerID,
+			Comment:           contract.Comment,
+
+			IsPersonalInvestAccount:    contract.IsPersonalInvestAccount,
+			IsPersonalInvestAccountNew: contract.IsPersonalInvestAccountNew,
+
+			RialtoCode: contract.RialtoCode,
+			Anketa:     contract.Anketa,
+			OwnerID:    contract.OwnerID,
+			UserLogin:  contract.UserLogin,
+
+			CalculatedProfileID: contract.CalculatedProfileID,
+			DepoAccountsType:    contract.DepoAccountsType,
+			StrategyID:          contract.StrategyID,
+			StrategyName:        contract.StrategyName,
+			TariffID:            contract.TariffID,
+			TariffName:          contract.TariffName,
+
+			CreatedAt: contract.CreatedAt,
+			UpdatedAt: contract.UpdatedAt,
+			SignedAt:  contract.SignedAt,
+			ClosedAt:  contract.ClosedAt,
+			SyncedAt:  contract.SyncedAt,
+
+			Hash: contract.Hash,
+			Raw:  convertJSONToMap(contract.Raw),
+		}
+	}
+
+	totalPages := int((total + int64(perPage) - 1) / int64(perPage))
+
+	response := models.ListContractsResponse{
+		Success:    true,
+		Contracts:  contractResponses,
+		Page:       page,
+		PerPage:    perPage,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	return c.JSON(response)
 }

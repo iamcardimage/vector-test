@@ -235,7 +235,7 @@ const docTemplate = `{
         },
         "/clients/{id}": {
             "get": {
-                "description": "Get current client information including second part if available",
+                "description": "Get complete client information including all available fields and second part if available",
                 "consumes": [
                     "application/json"
                 ],
@@ -257,24 +257,21 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Client information",
+                        "description": "Complete client information",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/vector_internal_models.GetClientResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid client ID",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Client not found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
                         }
                     }
                 }
@@ -383,6 +380,113 @@ const docTemplate = `{
                 }
             }
         },
+        "/contracts": {
+            "get": {
+                "description": "Get list of contracts with optional filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contracts"
+                ],
+                "summary": "List contracts",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "per_page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by user ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (active, closed)",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of contracts",
+                        "schema": {
+                            "$ref": "#/definitions/vector_internal_models.ListContractsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/contracts/{id}": {
+            "get": {
+                "description": "Get complete contract information by contract ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contracts"
+                ],
+                "summary": "Get contract information",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Contract ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Complete contract information",
+                        "schema": {
+                            "$ref": "#/definitions/vector_internal_models.GetContractResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid contract ID",
+                        "schema": {
+                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Contract not found",
+                        "schema": {
+                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/dbping": {
             "get": {
                 "tags": [
@@ -418,6 +522,507 @@ const docTemplate = `{
                             "type": "string"
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "vector_internal_models.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "client not found"
+                }
+            }
+        },
+        "vector_internal_models.GetClientResponse": {
+            "type": "object",
+            "properties": {
+                "ad_source": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "agent_id": {
+                    "type": "integer",
+                    "example": 456
+                },
+                "agent_point_id": {
+                    "type": "integer",
+                    "example": 789
+                },
+                "birth_place": {
+                    "type": "string",
+                    "example": "Test City"
+                },
+                "birthday": {
+                    "type": "string",
+                    "example": "1990-01-01"
+                },
+                "block_type": {
+                    "type": "string",
+                    "example": ""
+                },
+                "blocked": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "blocked_reason": {
+                    "type": "string",
+                    "example": ""
+                },
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Москва"
+                },
+                "client_id": {
+                    "type": "integer",
+                    "example": 12345
+                },
+                "contact_email": {
+                    "type": "string",
+                    "example": "test@example.com"
+                },
+                "corps": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "country": {
+                    "type": "string",
+                    "example": "Россия"
+                },
+                "created_lk_at": {
+                    "type": "string",
+                    "example": "2024-01-01T10:00:00.000+03:00"
+                },
+                "current_sign_in_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "data_received_digital_profile": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "district": {
+                    "type": "string",
+                    "example": "Тверской"
+                },
+                "document_country": {
+                    "type": "string",
+                    "example": "RU"
+                },
+                "document_type": {
+                    "type": "string",
+                    "example": "passport"
+                },
+                "esia_id": {
+                    "type": "integer",
+                    "example": 98765
+                },
+                "external_id": {
+                    "type": "integer",
+                    "example": 54321
+                },
+                "external_id_str": {
+                    "type": "string",
+                    "example": "EXT_12345"
+                },
+                "external_risk_level": {
+                    "type": "string",
+                    "example": "low"
+                },
+                "fill_stage": {
+                    "type": "string",
+                    "example": "completed"
+                },
+                "flat": {
+                    "type": "integer",
+                    "example": 25
+                },
+                "from_company_settings": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "hash": {
+                    "type": "string",
+                    "example": "abc123def456"
+                },
+                "house": {
+                    "type": "string",
+                    "example": "10"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 12345
+                },
+                "identification_type": {
+                    "type": "string",
+                    "example": "passport"
+                },
+                "index": {
+                    "type": "integer",
+                    "example": 123456
+                },
+                "inn": {
+                    "type": "string",
+                    "example": "123456789012"
+                },
+                "is_american_national": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "is_current": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "is_filled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "is_rf_resident": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "is_rf_taxpayer": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "is_valid_info": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "legal_capacity": {
+                    "type": "string",
+                    "example": "full"
+                },
+                "locked_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "login": {
+                    "type": "string",
+                    "example": "user_login"
+                },
+                "main_phone": {
+                    "type": "string",
+                    "example": "1234567890"
+                },
+                "male": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "manager": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Иван"
+                },
+                "need_to_set_password": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "needs_second_part": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "note": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "pass_issue_date": {
+                    "type": "string",
+                    "example": "01.01.2020"
+                },
+                "pass_issuer": {
+                    "type": "string",
+                    "example": "MVD Test District"
+                },
+                "pass_issuer_code": {
+                    "type": "string",
+                    "example": "100-001"
+                },
+                "pass_number": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "pass_series": {
+                    "type": "string",
+                    "example": "1234"
+                },
+                "patronymic": {
+                    "type": "string",
+                    "example": "Иванович"
+                },
+                "person_info": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "pifs_portfolio_code": {
+                    "type": "integer",
+                    "example": 123
+                },
+                "qualified_investor": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "raw": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "region": {
+                    "type": "string",
+                    "example": "Московская область"
+                },
+                "risk_level": {
+                    "type": "string",
+                    "example": "low"
+                },
+                "second_part": {
+                    "type": "object",
+                    "properties": {
+                        "client_version": {
+                            "type": "integer",
+                            "example": 1
+                        },
+                        "due_at": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "is_current": {
+                            "type": "boolean",
+                            "example": true
+                        },
+                        "risk_level": {
+                            "type": "string",
+                            "example": "low"
+                        },
+                        "status": {
+                            "type": "string",
+                            "example": "draft"
+                        },
+                        "version": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                },
+                "second_part_created": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "second_part_trigger_hash": {
+                    "type": "string",
+                    "example": "xyz789abc123"
+                },
+                "settings": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "sign_in_count": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "signature_allowed_numbers": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "signature_type": {
+                    "type": "string",
+                    "example": "electronic"
+                },
+                "snils": {
+                    "type": "string",
+                    "example": "12345678901"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "unchanged"
+                },
+                "street": {
+                    "type": "string",
+                    "example": "ул. Тверская"
+                },
+                "surname": {
+                    "type": "string",
+                    "example": "Иванов"
+                },
+                "synced_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "tax_status": {
+                    "type": "string",
+                    "example": "resident"
+                },
+                "updated_lk_at": {
+                    "type": "string",
+                    "example": "2024-01-01T12:00:00.000+03:00"
+                },
+                "valid_from": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "valid_to": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "vector_internal_models.GetContractResponse": {
+            "type": "object",
+            "properties": {
+                "anketa": {
+                    "type": "string",
+                    "example": "ANK456"
+                },
+                "calculated_profile_id": {
+                    "type": "integer",
+                    "example": 222
+                },
+                "closed_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "comment": {
+                    "type": "string",
+                    "example": "Основной договор"
+                },
+                "contract_owner_id": {
+                    "type": "integer",
+                    "example": 789
+                },
+                "contract_owner_type": {
+                    "type": "string",
+                    "example": "individual"
+                },
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "depo_accounts_type": {
+                    "type": "string",
+                    "example": "standard"
+                },
+                "external_id": {
+                    "type": "integer",
+                    "example": 54321
+                },
+                "hash": {
+                    "type": "string",
+                    "example": "abc123def456"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 123
+                },
+                "inner_code": {
+                    "type": "string",
+                    "example": "BRK-001"
+                },
+                "is_personal_invest_account": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "is_personal_invest_account_new": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "broking"
+                },
+                "owner_id": {
+                    "type": "integer",
+                    "example": 111
+                },
+                "raw": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "rialto_code": {
+                    "type": "string",
+                    "example": "RLT123"
+                },
+                "signed_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "active"
+                },
+                "strategy_id": {
+                    "type": "integer",
+                    "example": 333
+                },
+                "strategy_name": {
+                    "type": "string",
+                    "example": "Conservative"
+                },
+                "synced_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "tariff_id": {
+                    "type": "integer",
+                    "example": 444
+                },
+                "tariff_name": {
+                    "type": "string",
+                    "example": "Basic"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 12345
+                },
+                "user_login": {
+                    "type": "string",
+                    "example": "user123"
+                }
+            }
+        },
+        "vector_internal_models.ListContractsResponse": {
+            "type": "object",
+            "properties": {
+                "contracts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/vector_internal_models.GetContractResponse"
+                    }
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "per_page": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 150
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 15
                 }
             }
         }

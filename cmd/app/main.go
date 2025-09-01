@@ -71,8 +71,9 @@ func initDependencies(gdb *gorm.DB) *dependencies {
 	userRepo := repository.NewUserRepository(gdb)
 	checkRepo := repository.NewCheckRepository(gdb)
 	recalcRepo := repository.NewRecalcRepository(gdb)
+	syncContractRepo := repository.NewSyncContractRepository(gdb)
 
-	appService := service.NewAppService(clientRepo, userRepo, checkRepo, recalcRepo)
+	appService := service.NewAppService(clientRepo, userRepo, checkRepo, recalcRepo, syncContractRepo)
 
 	appHandlers := handlers.NewAppHandlers(appService)
 	healthHandlers := handlers.NewHealthHandlers()

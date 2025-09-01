@@ -137,7 +137,7 @@ func (r *syncClientRepository) ApplyUsersBatch(ctx context.Context, users []Appl
 	return stats, err
 }
 
-func (r *syncClientRepository) buildClientVersion(userData ApplyUserData, m map[string]any, version int, now time.Time) models.ClientVersion {
+func (r *syncClientRepository) buildClientVersion(userData ApplyUserData, _ map[string]any, version int, now time.Time) models.ClientVersion {
 	client := utils.ParseClientVersion(userData.RawData)
 	client.ClientID = userData.UserID
 	client.Version = version

@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"time"
 	"vector/internal/models"
 	"vector/internal/repository"
@@ -9,10 +11,11 @@ import (
 )
 
 type AppService struct {
-	clientRepo repository.AppClientRepository
-	userRepo   repository.UserRepository
-	checkRepo  repository.CheckRepository
-	recalcRepo repository.RecalcRepository
+	clientRepo       repository.AppClientRepository
+	userRepo         repository.UserRepository
+	checkRepo        repository.CheckRepository
+	recalcRepo       repository.RecalcRepository
+	syncContractRepo repository.SyncContractRepository
 }
 
 func NewAppService(
@@ -20,12 +23,14 @@ func NewAppService(
 	userRepo repository.UserRepository,
 	checkRepo repository.CheckRepository,
 	recalcRepo repository.RecalcRepository,
+	syncContractRepo repository.SyncContractRepository,
 ) *AppService {
 	return &AppService{
-		clientRepo: clientRepo,
-		userRepo:   userRepo,
-		checkRepo:  checkRepo,
-		recalcRepo: recalcRepo,
+		clientRepo:       clientRepo,
+		userRepo:         userRepo,
+		checkRepo:        checkRepo,
+		recalcRepo:       recalcRepo,
+		syncContractRepo: syncContractRepo,
 	}
 }
 
@@ -111,4 +116,21 @@ func (s *AppService) RecalcPassportExpiry() (int64, error) {
 
 func (s *AppService) RecalcAll() error {
 	return s.recalcRepo.RecalcAll()
+}
+
+func (s *AppService) GetContract(contractID int) (models.Contract, error) {
+
+	ctx := context.Background()
+	contract, err := s.syncContractRepo.GetCurrentContract(ctx, contractID)
+	if err != nil {
+		return models.Contract{}, err
+	}
+	if contract == nil {
+		return models.Contract{}, errors.New("contract not found")
+	}
+	return *contract, nil
+}
+
+func (s *AppService) ListContracts(page, perPage int, userID *int, status *string) ([]models.Contract, int64, error) {
+	return s.syncContractRepo.ListContracts(page, perPage, userID, status)
 }
