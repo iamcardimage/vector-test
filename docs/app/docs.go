@@ -233,6 +233,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/clients": {
+            "get": {
+                "description": "Get list of clients with optional filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "List clients",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "per_page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by needs second part",
+                        "name": "needs_second_part",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by second part status (draft, completed)",
+                        "name": "sp_status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of clients",
+                        "schema": {
+                            "$ref": "#/definitions/models.ListClientsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/clients/{id}": {
             "get": {
                 "description": "Get complete client information including all available fields and second part if available",
@@ -259,19 +322,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Complete client information",
                         "schema": {
-                            "$ref": "#/definitions/vector_internal_models.GetClientResponse"
+                            "$ref": "#/definitions/models.GetClientResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid client ID",
                         "schema": {
-                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Client not found",
                         "schema": {
-                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     }
                 }
@@ -425,19 +488,19 @@ const docTemplate = `{
                     "200": {
                         "description": "List of contracts",
                         "schema": {
-                            "$ref": "#/definitions/vector_internal_models.ListContractsResponse"
+                            "$ref": "#/definitions/models.ListContractsResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid parameters",
                         "schema": {
-                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     }
                 }
@@ -469,19 +532,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Complete contract information",
                         "schema": {
-                            "$ref": "#/definitions/vector_internal_models.GetContractResponse"
+                            "$ref": "#/definitions/models.GetContractResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid contract ID",
                         "schema": {
-                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Contract not found",
                         "schema": {
-                            "$ref": "#/definitions/vector_internal_models.ErrorResponse"
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     }
                 }
@@ -527,7 +590,78 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "vector_internal_models.ErrorResponse": {
+        "models.ClientDetailResponse": {
+            "type": "object",
+            "properties": {
+                "birth_place": {
+                    "type": "string"
+                },
+                "birthday": {
+                    "type": "string"
+                },
+                "contact_email": {
+                    "type": "string"
+                },
+                "created_lk_at": {
+                    "type": "string"
+                },
+                "external_risk_level": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "inn": {
+                    "type": "string"
+                },
+                "main_phone": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "needs_second_part": {
+                    "type": "boolean"
+                },
+                "pass_issue_date": {
+                    "type": "string"
+                },
+                "pass_issuer": {
+                    "type": "string"
+                },
+                "pass_issuer_code": {
+                    "type": "string"
+                },
+                "pass_number": {
+                    "type": "string"
+                },
+                "pass_series": {
+                    "type": "string"
+                },
+                "patronymic": {
+                    "type": "string"
+                },
+                "second_part": {
+                    "$ref": "#/definitions/models.SecondPartResponse"
+                },
+                "second_part_created": {
+                    "type": "boolean"
+                },
+                "snils": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                },
+                "updated_lk_at": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -536,7 +670,7 @@ const docTemplate = `{
                 }
             }
         },
-        "vector_internal_models.GetClientResponse": {
+        "models.GetClientResponse": {
             "type": "object",
             "properties": {
                 "ad_source": {
@@ -878,7 +1012,7 @@ const docTemplate = `{
                 }
             }
         },
-        "vector_internal_models.GetContractResponse": {
+        "models.GetContractResponse": {
             "type": "object",
             "properties": {
                 "anketa": {
@@ -995,13 +1129,13 @@ const docTemplate = `{
                 }
             }
         },
-        "vector_internal_models.ListContractsResponse": {
+        "models.ListClientsResponse": {
             "type": "object",
             "properties": {
-                "contracts": {
+                "clients": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/vector_internal_models.GetContractResponse"
+                        "$ref": "#/definitions/models.ClientDetailResponse"
                     }
                 },
                 "page": {
@@ -1023,6 +1157,68 @@ const docTemplate = `{
                 "total_pages": {
                     "type": "integer",
                     "example": 15
+                }
+            }
+        },
+        "models.ListContractsResponse": {
+            "type": "object",
+            "properties": {
+                "contracts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GetContractResponse"
+                    }
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "per_page": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 150
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 15
+                }
+            }
+        },
+        "models.SecondPartResponse": {
+            "type": "object",
+            "properties": {
+                "client_version": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "due_at": {
+                    "type": "string"
+                },
+                "is_current": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "risk_level": {
+                    "type": "string",
+                    "example": ""
+                },
+                "stale": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "draft"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 3
                 }
             }
         }

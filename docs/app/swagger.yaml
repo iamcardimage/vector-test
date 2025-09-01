@@ -1,12 +1,59 @@
 basePath: /
 definitions:
-  vector_internal_models.ErrorResponse:
+  models.ClientDetailResponse:
+    properties:
+      birth_place:
+        type: string
+      birthday:
+        type: string
+      contact_email:
+        type: string
+      created_lk_at:
+        type: string
+      external_risk_level:
+        type: string
+      id:
+        type: integer
+      inn:
+        type: string
+      main_phone:
+        type: string
+      name:
+        type: string
+      needs_second_part:
+        type: boolean
+      pass_issue_date:
+        type: string
+      pass_issuer:
+        type: string
+      pass_issuer_code:
+        type: string
+      pass_number:
+        type: string
+      pass_series:
+        type: string
+      patronymic:
+        type: string
+      second_part:
+        $ref: '#/definitions/models.SecondPartResponse'
+      second_part_created:
+        type: boolean
+      snils:
+        type: string
+      surname:
+        type: string
+      updated_lk_at:
+        type: string
+      version:
+        type: integer
+    type: object
+  models.ErrorResponse:
     properties:
       error:
         example: client not found
         type: string
     type: object
-  vector_internal_models.GetClientResponse:
+  models.GetClientResponse:
     properties:
       ad_source:
         additionalProperties: true
@@ -261,7 +308,7 @@ definitions:
         example: 1
         type: integer
     type: object
-  vector_internal_models.GetContractResponse:
+  models.GetContractResponse:
     properties:
       anketa:
         example: ANK456
@@ -348,11 +395,11 @@ definitions:
         example: user123
         type: string
     type: object
-  vector_internal_models.ListContractsResponse:
+  models.ListClientsResponse:
     properties:
-      contracts:
+      clients:
         items:
-          $ref: '#/definitions/vector_internal_models.GetContractResponse'
+          $ref: '#/definitions/models.ClientDetailResponse'
         type: array
       page:
         example: 1
@@ -368,6 +415,50 @@ definitions:
         type: integer
       total_pages:
         example: 15
+        type: integer
+    type: object
+  models.ListContractsResponse:
+    properties:
+      contracts:
+        items:
+          $ref: '#/definitions/models.GetContractResponse'
+        type: array
+      page:
+        example: 1
+        type: integer
+      per_page:
+        example: 10
+        type: integer
+      success:
+        example: true
+        type: boolean
+      total:
+        example: 150
+        type: integer
+      total_pages:
+        example: 15
+        type: integer
+    type: object
+  models.SecondPartResponse:
+    properties:
+      client_version:
+        example: 1
+        type: integer
+      due_at:
+        type: string
+      is_current:
+        example: true
+        type: boolean
+      risk_level:
+        example: ""
+        type: string
+      stale:
+        type: boolean
+      status:
+        example: draft
+        type: string
+      version:
+        example: 3
         type: integer
     type: object
 info:
@@ -522,6 +613,48 @@ paths:
       summary: Rotate user token
       tags:
       - auth
+  /clients:
+    get:
+      consumes:
+      - application/json
+      description: Get list of clients with optional filtering
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: per_page
+        type: integer
+      - description: Filter by needs second part
+        in: query
+        name: needs_second_part
+        type: boolean
+      - description: Filter by second part status (draft, completed)
+        in: query
+        name: sp_status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of clients
+          schema:
+            $ref: '#/definitions/models.ListClientsResponse'
+        "400":
+          description: Invalid parameters
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List clients
+      tags:
+      - clients
   /clients/{id}:
     get:
       consumes:
@@ -540,15 +673,15 @@ paths:
         "200":
           description: Complete client information
           schema:
-            $ref: '#/definitions/vector_internal_models.GetClientResponse'
+            $ref: '#/definitions/models.GetClientResponse'
         "400":
           description: Invalid client ID
           schema:
-            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "404":
           description: Client not found
           schema:
-            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       summary: Get client information
       tags:
       - clients
@@ -651,15 +784,15 @@ paths:
         "200":
           description: List of contracts
           schema:
-            $ref: '#/definitions/vector_internal_models.ListContractsResponse'
+            $ref: '#/definitions/models.ListContractsResponse'
         "400":
           description: Invalid parameters
           schema:
-            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       summary: List contracts
       tags:
       - contracts
@@ -680,15 +813,15 @@ paths:
         "200":
           description: Complete contract information
           schema:
-            $ref: '#/definitions/vector_internal_models.GetContractResponse'
+            $ref: '#/definitions/models.GetContractResponse'
         "400":
           description: Invalid contract ID
           schema:
-            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "404":
           description: Contract not found
           schema:
-            $ref: '#/definitions/vector_internal_models.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       summary: Get contract information
       tags:
       - contracts

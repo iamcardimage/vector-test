@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 	"time"
 	"vector/internal/models"
@@ -221,9 +222,22 @@ func RequestDocsSecondPart(gdb *gorm.DB, clientID int, userID *int, reason strin
 
 type ClientWithSP struct {
 	ClientID          int    `gorm:"column:client_id" json:"id"`
-	Surname           string `json:"surname"`
-	Name              string `json:"name"`
-	Patronymic        string `json:"patronymic"`
+	Surname           string `gorm:"column:surname" json:"surname"`
+	Name              string `gorm:"column:name" json:"name"`
+	Patronymic        string `gorm:"column:patronymic" json:"patronymic"`
+	Birthday          string `gorm:"column:birthday" json:"birthday"`
+	BirthPlace        string `gorm:"column:birth_place" json:"birth_place"`
+	ContactEmail      string `gorm:"column:contact_email" json:"contact_email"`
+	Inn               string `gorm:"column:inn" json:"inn"`
+	Snils             string `gorm:"column:snils" json:"snils"`
+	CreatedLKAt       string `gorm:"column:created_lk_at" json:"created_lk_at"`
+	UpdatedLKAt       string `gorm:"column:updated_lk_at" json:"updated_lk_at"`
+	PassIssuerCode    string `gorm:"column:pass_issuer_code" json:"pass_issuer_code"`
+	PassSeries        string `gorm:"column:pass_series" json:"pass_series"`
+	PassNumber        string `gorm:"column:pass_number" json:"pass_number"`
+	PassIssueDate     string `gorm:"column:pass_issue_date" json:"pass_issue_date"`
+	PassIssuer        string `gorm:"column:pass_issuer" json:"pass_issuer"`
+	MainPhone         string `gorm:"column:main_phone" json:"main_phone"`
 	ExternalRiskLevel string `gorm:"column:external_risk_level" json:"external_risk_level"`
 	NeedsSecondPart   bool   `gorm:"column:needs_second_part" json:"needs_second_part"`
 	SecondPartCreated bool   `gorm:"column:second_part_created" json:"second_part_created"`
@@ -251,21 +265,26 @@ func ListClientsWithSP(
 
 	base := gdb.Table("core.clients_versions AS c").
 		Select(`
-			c.client_id,
-			c.surname, c.name, c.patronymic,
-			c.external_risk_level,
-			c.needs_second_part,
-			c.second_part_created,
-			c.version AS client_version,
-			sp.status AS sp_status,
-			sp.due_at AS sp_due_at,
-			sp.client_version AS sp_client_version
-		`).
+		c.client_id,
+		c.surname, c.name, c.patronymic,
+		c.birthday, c.birth_place,
+		c.contact_email, c.inn, c.snils,
+		c.created_lk_at, c.updated_lk_at,
+		c.pass_issuer_code, c.pass_series, c.pass_number,
+		c.pass_issue_date, c.pass_issuer, c.main_phone,
+		c.external_risk_level,
+		c.needs_second_part,
+		c.second_part_created,
+		c.version AS client_version,
+		sp.status AS sp_status,
+		sp.due_at AS sp_due_at,
+		sp.client_version AS sp_client_version
+	`).
 		Joins(`
-			LEFT JOIN core.second_part_versions AS sp
-				ON sp.client_id = c.client_id
-				AND sp.is_current = true
-		`).
+		LEFT JOIN core.second_part_versions AS sp
+			ON sp.client_id = c.client_id
+			AND sp.is_current = true
+	`).
 		Where("c.is_current = true")
 
 	if needsSecondPart != nil {
@@ -278,14 +297,15 @@ func ListClientsWithSP(
 		base = base.Where("sp.due_at IS NOT NULL AND sp.due_at <= ?", *dueBefore)
 	}
 
-	if err = gdb.Table("(?) AS sub", base.Session(&gorm.Session{NewDB: true})).Count(&total).Error; err != nil {
+	if err = base.Count(&total).Error; err != nil {
 		return
 	}
-
+	fmt.Printf("DEBUG: Total found: %d\n", total)
 	err = base.
 		Order("c.client_id ASC").
 		Limit(perPage).
 		Offset(offset).
 		Scan(&items).Error
+
 	return
 }

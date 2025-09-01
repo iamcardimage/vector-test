@@ -187,6 +187,16 @@ type ListContractsResponse struct {
 	Total      int64                 `json:"total" example:"150"`
 	TotalPages int                   `json:"total_pages" example:"15"`
 }
+
+type ListClientsResponse struct {
+	Success    bool                   `json:"success" example:"true"`
+	Clients    []ClientDetailResponse `json:"clients"`
+	Page       int                    `json:"page" example:"1"`
+	PerPage    int                    `json:"per_page" example:"10"`
+	Total      int64                  `json:"total" example:"150"`
+	TotalPages int                    `json:"total_pages" example:"15"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error" example:"client not found"`
 }

@@ -578,3 +578,101 @@ func (h *AppHandlers) ListContracts(c *fiber.Ctx) error {
 
 	return c.JSON(response)
 }
+
+// ListClients godoc
+// @Summary List clients
+// @Description Get list of clients with optional filtering
+// @Tags clients
+// @Accept json
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param per_page query int false "Items per page" default(10)
+// @Param needs_second_part query bool false "Filter by needs second part"
+// @Param sp_status query string false "Filter by second part status (draft, completed)"
+// @Success 200 {object} models.ListClientsResponse "List of clients"
+// @Failure 400 {object} models.ErrorResponse "Invalid parameters"
+// @Failure 500 {object} models.ErrorResponse "Internal server error"
+// @Router /clients [get]
+func (h *AppHandlers) ListClients(c *fiber.Ctx) error {
+	page := c.QueryInt("page", 1)
+	perPage := c.QueryInt("per_page", 10)
+
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 10
+	}
+
+	var needsSecondPart *bool
+	if needsSecondPartStr := c.Query("needs_second_part"); needsSecondPartStr != "" {
+		if nssp, err := strconv.ParseBool(needsSecondPartStr); err == nil {
+			needsSecondPart = &nssp
+		}
+	}
+
+	var spStatus *string
+	if spStatusStr := c.Query("sp_status"); spStatusStr != "" {
+		spStatus = &spStatusStr
+	}
+
+	clients, total, err := h.appService.ListClientsWithSP(page, perPage, needsSecondPart, spStatus, nil)
+	if err != nil {
+		return c.Status(500).JSON(models.ErrorResponse{Error: "failed to get clients: " + err.Error()})
+	}
+
+	clientResponses := make([]models.ClientDetailResponse, len(clients))
+	for i, client := range clients {
+		clientItem := models.ClientListItem{
+			ClientID:          client.ClientID,
+			Surname:           client.Surname,
+			Name:              client.Name,
+			Patronymic:        client.Patronymic,
+			Birthday:          client.Birthday,
+			BirthPlace:        client.BirthPlace,
+			ContactEmail:      client.ContactEmail,
+			Inn:               client.Inn,
+			Snils:             client.Snils,
+			CreatedLKAt:       client.CreatedLKAt,
+			UpdatedLKAt:       client.UpdatedLKAt,
+			PassIssuerCode:    client.PassIssuerCode,
+			PassSeries:        client.PassSeries,
+			PassNumber:        client.PassNumber,
+			PassIssueDate:     client.PassIssueDate,
+			PassIssuer:        client.PassIssuer,
+			MainPhone:         client.MainPhone,
+			ExternalRiskLevel: client.ExternalRiskLevel,
+			NeedsSecondPart:   client.NeedsSecondPart,
+			SecondPartCreated: client.SecondPartCreated,
+			Version:           client.ClientVersion,
+		}
+
+		clientResponse := models.ClientDetailResponse{
+			ClientListItem: clientItem,
+		}
+
+		if client.SpStatus != nil {
+			clientResponse.SecondPart = &models.SecondPartResponse{
+				ClientVersion: *client.SpClientVersion,
+				Status:        *client.SpStatus,
+				DueAt:         client.SpDueAt,
+				IsCurrent:     true,
+			}
+		}
+
+		clientResponses[i] = clientResponse
+	}
+
+	totalPages := int((total + int64(perPage) - 1) / int64(perPage))
+
+	response := models.ListClientsResponse{
+		Success:    true,
+		Clients:    clientResponses,
+		Page:       page,
+		PerPage:    perPage,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	return c.JSON(response)
+}

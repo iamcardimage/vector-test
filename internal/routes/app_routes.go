@@ -16,6 +16,7 @@ func SetupAppRoutes(
 	app.Get("/healthz", healthHandlers.Health)
 	app.Get("/dbping", healthHandlers.DBPing)
 
+	app.Get("/clients", appHandlers.ListClients)
 	app.Get("/clients/:id", appHandlers.GetClient)
 	app.Get("/clients/:id/second-part/history", appHandlers.GetSecondPartHistory)
 	app.Post("/clients/:id/second-part/draft", appHandlers.CreateSecondPartDraft)
