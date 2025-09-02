@@ -15,9 +15,9 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/auth/register": {
+        "/auth/login": {
             "post": {
-                "description": "Create a new user with email, role and optional token",
+                "description": "Вход в систему с email и паролем, возвращает JWT токен",
                 "consumes": [
                     "application/json"
                 ],
@@ -27,39 +27,89 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Create new user",
+                "summary": "Аутентификация пользователя",
                 "parameters": [
                     {
-                        "description": "User data",
-                        "name": "user",
+                        "description": "Данные для входа",
+                        "name": "credentials",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "properties": {
-                                "email": {
-                                    "type": "string"
-                                },
-                                "role": {
-                                    "type": "string"
-                                },
-                                "token": {
-                                    "type": "string"
-                                }
-                            }
+                            "$ref": "#/definitions/models.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Created user",
+                        "description": "Успешная аутентификация",
+                        "schema": {
+                            "$ref": "#/definitions/models.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверные данные",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
-                    "400": {
-                        "description": "Invalid input or creation failed",
+                    "401": {
+                        "description": "Неверный email или пароль",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/profile": {
+            "get": {
+                "description": "Получить информацию о текущем аутентифицированном пользователе",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Получить профиль текущего пользователя",
+                "responses": {
+                    "200": {
+                        "description": "Профиль пользователя",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Пользователь не аутентифицирован",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/roles": {
+            "get": {
+                "description": "Получить список всех доступных ролей в системе",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Получить список доступных ролей",
+                "responses": {
+                    "200": {
+                        "description": "Список ролей",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -69,8 +119,8 @@ const docTemplate = `{
             }
         },
         "/auth/users": {
-            "get": {
-                "description": "Get list of all users in the system",
+            "post": {
+                "description": "Создать нового пользователя в системе. Доступно только администраторам.",
                 "consumes": [
                     "application/json"
                 ],
@@ -80,151 +130,35 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "List all users",
-                "responses": {
-                    "200": {
-                        "description": "List of users",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/users/{id}": {
-            "delete": {
-                "description": "Delete an existing user from the system",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Delete user",
+                "summary": "Создание нового пользователя (только для администраторов)",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success confirmation",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid input or deletion failed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/users/{id}/role": {
-            "patch": {
-                "description": "Update the role of an existing user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Update user role",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "New role",
-                        "name": "role",
+                        "description": "Данные пользователя",
+                        "name": "user",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "properties": {
-                                "role": {
-                                    "type": "string"
-                                }
-                            }
+                            "$ref": "#/definitions/models.CreateUserRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Updated user",
+                    "201": {
+                        "description": "Пользователь создан",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Invalid input or update failed",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/users/{id}/rotate-token": {
-            "post": {
-                "description": "Generate new token for an existing user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Rotate user token",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "User with new token",
+                        "description": "Неверные данные",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
-                    "400": {
-                        "description": "Invalid input or rotation failed",
+                    "403": {
+                        "description": "Недостаточно прав",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -235,6 +169,11 @@ const docTemplate = `{
         },
         "/clients": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get list of clients with optional filtering",
                 "consumes": [
                     "application/json"
@@ -298,6 +237,11 @@ const docTemplate = `{
         },
         "/clients/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get complete client information including all available fields and second part if available",
                 "consumes": [
                     "application/json"
@@ -342,6 +286,11 @@ const docTemplate = `{
         },
         "/clients/{id}/history": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get all versions of a specific client ordered by version (newest first)",
                 "consumes": [
                     "application/json"
@@ -390,8 +339,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/clients/{id}/history/{version}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get full data of a specific version of a client",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Get specific client version",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Client ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Version number",
+                        "name": "version",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Client version data",
+                        "schema": {
+                            "$ref": "#/definitions/models.GetClientVersionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid client ID or version",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Client version not found",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/clients/{id}/second-part/current": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get the current active second part information for a specific client",
                 "consumes": [
                     "application/json"
@@ -442,6 +458,11 @@ const docTemplate = `{
         },
         "/clients/{id}/second-part/draft": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Create a new second part draft for a client",
                 "consumes": [
                     "application/json"
@@ -498,6 +519,11 @@ const docTemplate = `{
         },
         "/clients/{id}/second-part/history": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get history of second part information for specific client",
                 "consumes": [
                     "application/json"
@@ -545,6 +571,11 @@ const docTemplate = `{
         },
         "/contracts": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get list of contracts with optional filtering",
                 "consumes": [
                     "application/json"
@@ -608,6 +639,11 @@ const docTemplate = `{
         },
         "/contracts/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get complete contract information by contract ID",
                 "consumes": [
                     "application/json"
@@ -690,6 +726,45 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.AppUser": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "firstName": {
+                    "description": "Имя",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isActive": {
+                    "description": "Активен ли пользователь",
+                    "type": "boolean"
+                },
+                "lastName": {
+                    "description": "Фамилия",
+                    "type": "string"
+                },
+                "middleName": {
+                    "description": "Отчество (может быть пустым)",
+                    "type": "string"
+                },
+                "passwordHash": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ClientDetailResponse": {
             "type": "object",
             "properties": {
@@ -781,6 +856,37 @@ const docTemplate = `{
                 "total": {
                     "type": "integer",
                     "example": 5
+                }
+            }
+        },
+        "models.CreateUserRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "first_name",
+                "last_name",
+                "password",
+                "role"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "middle_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 6
+                },
+                "role": {
+                    "type": "string"
                 }
             }
         },
@@ -1135,6 +1241,22 @@ const docTemplate = `{
                 }
             }
         },
+        "models.GetClientVersionResponse": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "integer",
+                    "example": 123
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "version": {
+                    "$ref": "#/definitions/models.GetClientResponse"
+                }
+            }
+        },
         "models.GetContractResponse": {
             "type": "object",
             "properties": {
@@ -1375,6 +1497,36 @@ const docTemplate = `{
                 }
             }
         },
+        "models.LoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 6
+                }
+            }
+        },
+        "models.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "integer"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/models.AppUser"
+                }
+            }
+        },
         "models.SecondPartResponse": {
             "type": "object",
             "properties": {
@@ -1406,6 +1558,14 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type \"Bearer\" followed by a space and JWT token.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
@@ -1416,7 +1576,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Vector App API",
-	Description:      "API for app endpoints",
+	Description:      "API for app endpoints with JWT authentication",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

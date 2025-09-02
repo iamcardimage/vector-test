@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"strconv"
-	"strings"
 	"time"
 
 	"vector/internal/models"
@@ -23,45 +22,13 @@ func NewAppHandlers(appService *service.AppService) *AppHandlers {
 	}
 }
 
-// func asIntPtr(u uint) *int {
-// 	i := int(u)
-// 	return &i
-// }
-
-// func (h *AppHandlers) hasRole(u models.AppUser, roles ...string) bool {
-// 	for _, r := range roles {
-// 		if u.Role == r {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
-
-// func (h *AppHandlers) requireRoles(c *fiber.Ctx, roles ...string) (models.AppUser, bool) {
-// 	u := c.Locals("user").(models.AppUser)
-// 	if len(roles) == 0 || h.hasRole(u, roles...) || u.Role == models.RoleAdministrator {
-// 		return u, true
-// 	}
-// 	c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-// 	return u, false
-// }
-
-//	func (h *AppHandlers) canMutate(c *fiber.Ctx) (models.AppUser, bool) {
-//		u := c.Locals("user").(models.AppUser)
-//		if u.Role == "viewer" {
-//			c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-//			return u, false
-//		}
-//		return u, true
-//	}
-
-// =========Swagger=================
 // GetClient godoc
 // @Summary Get client information
 // @Description Get complete client information including all available fields and second part if available
 // @Tags clients
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "Client ID"
 // @Success 200 {object} models.GetClientResponse "Complete client information"
 // @Failure 400 {object} models.ErrorResponse "Invalid client ID"
@@ -79,7 +46,6 @@ func (h *AppHandlers) GetClient(c *fiber.Ctx) error {
 	}
 
 	response := models.GetClientResponse{
-
 		ID:            cur.ID,
 		ClientID:      cur.ClientID,
 		Version:       cur.Version,
@@ -210,6 +176,7 @@ func convertJSONToMap(jsonData datatypes.JSON) *map[string]interface{} {
 // @Tags clients
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "Client ID"
 // @Success 200 {object} map[string]interface{} "Second part history"
 // @Failure 400 {object} map[string]interface{} "Invalid client ID"
@@ -243,136 +210,13 @@ func (h *AppHandlers) GetSecondPartHistory(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "versions": out})
 }
 
-// CreateUser godoc
-// @Summary Create new user
-// @Description Create a new user with email, role and optional token
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param user body object{email=string,role=string,token=string} true "User data"
-// @Success 200 {object} map[string]interface{} "Created user"
-// @Failure 400 {object} map[string]interface{} "Invalid input or creation failed"
-// @Router /auth/register [post]
-func (h *AppHandlers) CreateUser(c *fiber.Ctx) error {
-	var in struct {
-		Email string `json:"email"`
-		Role  string `json:"role"`
-		Token string `json:"token,omitempty"`
-	}
-
-	if err := c.BodyParser(&in); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid json"})
-	}
-
-	u, err := h.appService.CreateUser(in.Email, in.Role, in.Token)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
-	}
-
-	return c.JSON(fiber.Map{
-		"id": u.ID, "email": u.Email, "role": u.Role, "token": u.Token,
-	})
-}
-
-// ListUsers godoc
-// @Summary List all users
-// @Description Get list of all users in the system
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Success 200 {object} map[string]interface{} "List of users"
-// @Failure 500 {object} map[string]interface{} "Internal server error"
-// @Router /auth/users [get]
-func (h *AppHandlers) ListUsers(c *fiber.Ctx) error {
-	users, err := h.appService.ListUsers()
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "list: " + err.Error()})
-	}
-	return c.JSON(fiber.Map{"success": true, "users": users})
-}
-
-// UpdateUserRole godoc
-// @Summary Update user role
-// @Description Update the role of an existing user
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param id path int true "User ID"
-// @Param role body object{role=string} true "New role"
-// @Success 200 {object} map[string]interface{} "Updated user"
-// @Failure 400 {object} map[string]interface{} "Invalid input or update failed"
-// @Router /auth/users/{id}/role [patch]
-func (h *AppHandlers) UpdateUserRole(c *fiber.Ctx) error {
-	uid64, err := strconv.ParseUint(c.Params("id"), 10, 64)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid id"})
-	}
-
-	var in struct {
-		Role string `json:"role"`
-	}
-	if err := c.BodyParser(&in); err != nil || strings.TrimSpace(in.Role) == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "role required"})
-	}
-
-	u, err := h.appService.UpdateUserRole(uint(uid64), in.Role)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
-	}
-	return c.JSON(u)
-}
-
-// RotateUserToken godoc
-// @Summary Rotate user token
-// @Description Generate new token for an existing user
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param id path int true "User ID"
-// @Success 200 {object} map[string]interface{} "User with new token"
-// @Failure 400 {object} map[string]interface{} "Invalid input or rotation failed"
-// @Router /auth/users/{id}/rotate-token [post]
-func (h *AppHandlers) RotateUserToken(c *fiber.Ctx) error {
-	uid64, err := strconv.ParseUint(c.Params("id"), 10, 64)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid id"})
-	}
-
-	u, err := h.appService.RotateUserToken(uint(uid64))
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
-	}
-	return c.JSON(u)
-}
-
-// DeleteUser godoc
-// @Summary Delete user
-// @Description Delete an existing user from the system
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param id path int true "User ID"
-// @Success 200 {object} map[string]interface{} "Success confirmation"
-// @Failure 400 {object} map[string]interface{} "Invalid input or deletion failed"
-// @Router /auth/users/{id} [delete]
-func (h *AppHandlers) DeleteUser(c *fiber.Ctx) error {
-	uid64, err := strconv.ParseUint(c.Params("id"), 10, 64)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid id"})
-	}
-
-	if err := h.appService.DeleteUser(uint(uid64)); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
-	}
-	return c.JSON(fiber.Map{"success": true})
-}
-
 // CreateSecondPartDraft godoc
 // @Summary Create second part draft
 // @Description Create a new second part draft for a client
 // @Tags clients
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "Client ID"
 // @Param draft body object{risk_level=string,data_override=object} false "Draft data"
 // @Success 200 {object} map[string]interface{} "Created second part draft"
@@ -427,6 +271,7 @@ func (h *AppHandlers) CreateSecondPartDraft(c *fiber.Ctx) error {
 // @Tags contracts
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "Contract ID"
 // @Success 200 {object} models.GetContractResponse "Complete contract information"
 // @Failure 400 {object} models.ErrorResponse "Invalid contract ID"
@@ -489,6 +334,7 @@ func (h *AppHandlers) GetContract(c *fiber.Ctx) error {
 // @Tags contracts
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param per_page query int false "Items per page" default(10)
 // @Param user_id query int false "Filter by user ID"
@@ -585,6 +431,7 @@ func (h *AppHandlers) ListContracts(c *fiber.Ctx) error {
 // @Tags clients
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param per_page query int false "Items per page" default(10)
 // @Param needs_second_part query bool false "Filter by needs second part"
@@ -685,6 +532,7 @@ func (h *AppHandlers) ListClients(c *fiber.Ctx) error {
 // @Tags clients
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "Client ID"
 // @Success 200 {object} models.GetSecondPartResponse "Current second part information"
 // @Failure 400 {object} models.ErrorResponse "Invalid client ID"
@@ -737,6 +585,7 @@ func (h *AppHandlers) GetSecondPartCurrent(c *fiber.Ctx) error {
 // @Tags clients
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "Client ID"
 // @Success 200 {object} models.ClientHistoryResponse "Client history"
 // @Failure 400 {object} models.ErrorResponse "Invalid client ID"
@@ -797,6 +646,7 @@ func (h *AppHandlers) GetClientHistory(c *fiber.Ctx) error {
 // @Tags clients
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "Client ID"
 // @Param version path int true "Version number"
 // @Success 200 {object} models.GetClientVersionResponse "Client version data"

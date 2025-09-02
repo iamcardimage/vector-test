@@ -1,5 +1,32 @@
 basePath: /
 definitions:
+  models.AppUser:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      firstName:
+        description: Имя
+        type: string
+      id:
+        type: integer
+      isActive:
+        description: Активен ли пользователь
+        type: boolean
+      lastName:
+        description: Фамилия
+        type: string
+      middleName:
+        description: Отчество (может быть пустым)
+        type: string
+      passwordHash:
+        type: string
+      role:
+        type: string
+      updatedAt:
+        type: string
+    type: object
   models.ClientDetailResponse:
     properties:
       birth_place:
@@ -62,6 +89,28 @@ definitions:
       total:
         example: 5
         type: integer
+    type: object
+  models.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      middle_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      role:
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
+    - role
     type: object
   models.ErrorResponse:
     properties:
@@ -324,6 +373,17 @@ definitions:
         example: 1
         type: integer
     type: object
+  models.GetClientVersionResponse:
+    properties:
+      client_id:
+        example: 123
+        type: integer
+      success:
+        example: true
+        type: boolean
+      version:
+        $ref: '#/definitions/models.GetClientResponse'
+    type: object
   models.GetContractResponse:
     properties:
       anketa:
@@ -500,6 +560,26 @@ definitions:
         example: 15
         type: integer
     type: object
+  models.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  models.LoginResponse:
+    properties:
+      expires_at:
+        type: integer
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/models.AppUser'
+    type: object
   models.SecondPartResponse:
     properties:
       client_version:
@@ -524,154 +604,110 @@ definitions:
     type: object
 info:
   contact: {}
-  description: API for app endpoints
+  description: API for app endpoints with JWT authentication
   title: Vector App API
   version: "1.0"
 paths:
-  /auth/register:
+  /auth/login:
     post:
       consumes:
       - application/json
-      description: Create a new user with email, role and optional token
+      description: Вход в систему с email и паролем, возвращает JWT токен
       parameters:
-      - description: User data
+      - description: Данные для входа
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная аутентификация
+          schema:
+            $ref: '#/definitions/models.LoginResponse'
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Неверный email или пароль
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Аутентификация пользователя
+      tags:
+      - auth
+  /auth/profile:
+    get:
+      consumes:
+      - application/json
+      description: Получить информацию о текущем аутентифицированном пользователе
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Профиль пользователя
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Пользователь не аутентифицирован
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Получить профиль текущего пользователя
+      tags:
+      - auth
+  /auth/roles:
+    get:
+      consumes:
+      - application/json
+      description: Получить список всех доступных ролей в системе
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список ролей
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Получить список доступных ролей
+      tags:
+      - auth
+  /auth/users:
+    post:
+      consumes:
+      - application/json
+      description: Создать нового пользователя в системе. Доступно только администраторам.
+      parameters:
+      - description: Данные пользователя
         in: body
         name: user
         required: true
         schema:
-          properties:
-            email:
-              type: string
-            role:
-              type: string
-            token:
-              type: string
-          type: object
+          $ref: '#/definitions/models.CreateUserRequest'
       produces:
       - application/json
       responses:
-        "200":
-          description: Created user
+        "201":
+          description: Пользователь создан
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: Invalid input or creation failed
+          description: Неверные данные
           schema:
             additionalProperties: true
             type: object
-      summary: Create new user
-      tags:
-      - auth
-  /auth/users:
-    get:
-      consumes:
-      - application/json
-      description: Get list of all users in the system
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: List of users
+        "403":
+          description: Недостаточно прав
           schema:
             additionalProperties: true
             type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List all users
-      tags:
-      - auth
-  /auth/users/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete an existing user from the system
-      parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Success confirmation
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid input or deletion failed
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Delete user
-      tags:
-      - auth
-  /auth/users/{id}/role:
-    patch:
-      consumes:
-      - application/json
-      description: Update the role of an existing user
-      parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: New role
-        in: body
-        name: role
-        required: true
-        schema:
-          properties:
-            role:
-              type: string
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Updated user
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid input or update failed
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Update user role
-      tags:
-      - auth
-  /auth/users/{id}/rotate-token:
-    post:
-      consumes:
-      - application/json
-      description: Generate new token for an existing user
-      parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: User with new token
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid input or rotation failed
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Rotate user token
+      summary: Создание нового пользователя (только для администраторов)
       tags:
       - auth
   /clients:
@@ -713,6 +749,8 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: List clients
       tags:
       - clients
@@ -743,6 +781,8 @@ paths:
           description: Client not found
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get client information
       tags:
       - clients
@@ -777,7 +817,49 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get client history (all versions)
+      tags:
+      - clients
+  /clients/{id}/history/{version}:
+    get:
+      consumes:
+      - application/json
+      description: Get full data of a specific version of a client
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Version number
+        in: path
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Client version data
+          schema:
+            $ref: '#/definitions/models.GetClientVersionResponse'
+        "400":
+          description: Invalid client ID or version
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Client version not found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get specific client version
       tags:
       - clients
   /clients/{id}/second-part/current:
@@ -810,6 +892,8 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get current second part for client
       tags:
       - clients
@@ -847,6 +931,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Create second part draft
       tags:
       - clients
@@ -879,6 +965,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Get second part history for client
       tags:
       - clients
@@ -921,6 +1009,8 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: List contracts
       tags:
       - contracts
@@ -950,6 +1040,8 @@ paths:
           description: Contract not found
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get contract information
       tags:
       - contracts
@@ -977,4 +1069,10 @@ paths:
       summary: Health check
       tags:
       - health
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

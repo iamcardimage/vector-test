@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 	"vector/internal/db"
-	appdb "vector/internal/db/app"
 	"vector/internal/models"
+	"vector/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -132,22 +132,41 @@ func (m *Migrator) MigrateCoreSecondPart() error {
 func (m *Migrator) MigrateCoreUsers() error {
 	log.Println("Migrating core users tables...")
 	if err := m.db.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
-		return nil
+		return err
 	}
-	return m.db.AutoMigrate(&models.AppUser{})
+
+	// Миграция таблицы пользователей с новой структурой (JWT)
+	if err := m.db.AutoMigrate(&models.AppUser{}); err != nil {
+		return err
+	}
+
+	// Добавляем индексы для производительности
+	queries := []string{
+		`CREATE INDEX IF NOT EXISTS idx_app_users_email
+		 ON core.app_users (email)`,
+
+		`CREATE INDEX IF NOT EXISTS idx_app_users_role
+		 ON core.app_users (role)`,
+
+		`CREATE INDEX IF NOT EXISTS idx_app_users_active
+		 ON core.app_users (is_active)`,
+	}
+
+	for _, query := range queries {
+		if err := m.db.Exec(query).Error; err != nil {
+			log.Printf("Warning: could not create user index: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func (m *Migrator) MigrateCoreChecks() error {
 	log.Println("Migrating core checks table...")
 	if err := m.db.Exec("CREATE SCHEMA IF NOT EXISTS core").Error; err != nil {
-		return nil
+		return err
 	}
 	return m.db.AutoMigrate(&models.SecondPartCheck{})
-}
-
-func (m *Migrator) SeedUsers() error {
-	log.Println("Seeding default users...")
-	return appdb.SeedAppUsers(m.db)
 }
 
 func (m *Migrator) MigrateCoreContracts() error {
@@ -186,6 +205,76 @@ func (m *Migrator) MigrateCoreContracts() error {
 			log.Printf("Warning: could not create contracts index: %v", err)
 		}
 	}
+
+	return nil
+}
+
+func (m *Migrator) SeedUsers() error {
+	log.Println("Seeding default users...")
+
+	// Создаем репозиторий пользователей
+	userRepo := repository.NewUserRepository(m.db)
+
+	// Используем метод Seed из репозитория
+	if err := userRepo.Seed(); err != nil {
+		return fmt.Errorf("failed to seed users: %w", err)
+	}
+
+	log.Println("✅ Default users seeded successfully")
+	return nil
+}
+
+// MigrateUsersToJWT мигрирует существующих пользователей к новой JWT структуре
+func (m *Migrator) MigrateUsersToJWT() error {
+	log.Println("Migrating existing users to JWT structure...")
+
+	// Шаг 1: Добавляем новые поля к существующей таблице
+	if err := m.db.Exec(`
+		ALTER TABLE core.app_users 
+		ADD COLUMN IF NOT EXISTS first_name VARCHAR(255),
+		ADD COLUMN IF NOT EXISTS last_name VARCHAR(255),
+		ADD COLUMN IF NOT EXISTS middle_name VARCHAR(255),
+		ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255),
+		ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
+		ADD COLUMN IF NOT EXISTS last_login TIMESTAMP
+	`).Error; err != nil {
+		return fmt.Errorf("failed to add new columns: %w", err)
+	}
+
+	// Шаг 2: Обновляем существующих пользователей с временными данными
+	if err := m.db.Exec(`
+		UPDATE core.app_users 
+		SET 
+			first_name = COALESCE(first_name, 'Имя'),
+			last_name = COALESCE(last_name, 'Фамилия'),
+			middle_name = COALESCE(middle_name, ''),
+			password_hash = COALESCE(password_hash, '$2a$10$defaulthashedpassword'),
+			is_active = COALESCE(is_active, true)
+		WHERE first_name IS NULL OR last_name IS NULL OR password_hash IS NULL
+	`).Error; err != nil {
+		return fmt.Errorf("failed to update existing users: %w", err)
+	}
+
+	// Шаг 3: Удаляем старое поле token (если существует)
+	if err := m.db.Exec(`
+		ALTER TABLE core.app_users 
+		DROP COLUMN IF EXISTS token
+	`).Error; err != nil {
+		log.Printf("Warning: could not drop token column: %v", err)
+	}
+
+	// Шаг 4: Делаем обязательные поля NOT NULL
+	if err := m.db.Exec(`
+		ALTER TABLE core.app_users 
+		ALTER COLUMN first_name SET NOT NULL,
+		ALTER COLUMN last_name SET NOT NULL,
+		ALTER COLUMN password_hash SET NOT NULL
+	`).Error; err != nil {
+		return fmt.Errorf("failed to set NOT NULL constraints: %w", err)
+	}
+
+	log.Println("✅ User migration to JWT structure completed")
+	log.Println("📝 NOTE: All existing users now have default passwords. Please reset them via admin panel.")
 
 	return nil
 }

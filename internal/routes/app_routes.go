@@ -6,31 +6,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// SetupAppRoutes настраивает основные роуты приложения
 func SetupAppRoutes(
 	app *fiber.App,
-	appHandlers *handlers.AppHandlers,
 	healthHandlers *handlers.HealthHandlers,
-	authMiddleware fiber.Handler,
 ) {
-
+	// Health check роуты (публичные)
 	app.Get("/healthz", healthHandlers.Health)
 	app.Get("/dbping", healthHandlers.DBPing)
-
-	app.Get("/clients", appHandlers.ListClients)
-	app.Get("/clients/:id", appHandlers.GetClient)
-	app.Get("/clients/:id/second-part/history", appHandlers.GetSecondPartHistory)
-	app.Get("/clients/:id/second-part/current", appHandlers.GetSecondPartCurrent)
-	app.Post("/clients/:id/second-part/draft", appHandlers.CreateSecondPartDraft)
-
-	app.Get("/contracts", appHandlers.ListContracts)
-	app.Get("/contracts/:id", appHandlers.GetContract)
-
-	app.Get("/clients/:id/history", appHandlers.GetClientHistory)
-	app.Get("/clients/:id/history/:version", appHandlers.GetClientVersion)
-
-	app.Post("/auth/register", appHandlers.CreateUser)
-	app.Get("/auth/users", appHandlers.ListUsers)
-	app.Patch("/auth/users/:id/role", appHandlers.UpdateUserRole)
-	app.Post("/auth/users/:id/rotate-token", appHandlers.RotateUserToken)
-	app.Delete("/auth/users/:id", appHandlers.DeleteUser)
 }

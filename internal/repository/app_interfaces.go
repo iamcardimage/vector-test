@@ -22,11 +22,13 @@ type AppClientRepository interface {
 }
 
 type UserRepository interface {
-	GetByToken(token string) (models.AppUser, error)
-	Create(email, role, token string) (models.AppUser, error)
+	GetByID(id uint) (models.AppUser, error)
+	GetByEmail(email string) (models.AppUser, error)
+	Create(user models.AppUser) (models.AppUser, error)
 	List() ([]models.AppUser, error)
 	UpdateRole(id uint, role string) (models.AppUser, error)
-	RotateToken(id uint) (models.AppUser, error)
+	UpdatePassword(id uint, passwordHash string) error
+	SetActive(id uint, isActive bool) error
 	Delete(id uint) error
 	Seed() error
 }
