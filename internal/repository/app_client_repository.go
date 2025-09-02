@@ -21,6 +21,10 @@ func (r *appClientRepository) GetCurrent(clientID int) (models.ClientVersion, er
 	return appdb.GetClientCurrent(r.database, clientID)
 }
 
+func (r *appClientRepository) GetClientHistory(clientID int) ([]models.ClientVersion, error) {
+	return appdb.GetClientHistory(r.database, clientID)
+}
+
 func (r *appClientRepository) GetSecondPartCurrent(clientID int) (models.SecondPartVersion, error) {
 	return appdb.GetSecondPartCurrent(r.database, clientID)
 }
@@ -87,4 +91,8 @@ func (r *appClientRepository) ListClientsWithSP(page, perPage int, needsSecondPa
 	}
 
 	return items, total, nil
+}
+
+func (r *appClientRepository) GetClientVersion(clientID int, version int) (models.ClientVersion, error) {
+	return appdb.GetClientVersion(r.database, clientID, version)
 }

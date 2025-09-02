@@ -134,3 +134,11 @@ func (s *AppService) GetContract(contractID int) (models.Contract, error) {
 func (s *AppService) ListContracts(page, perPage int, userID *int, status *string) ([]models.Contract, int64, error) {
 	return s.syncContractRepo.ListContracts(page, perPage, userID, status)
 }
+
+func (s *AppService) GetClientHistory(clientID int) ([]models.ClientVersion, error) {
+	return s.clientRepo.GetClientHistory(clientID)
+}
+
+func (s *AppService) GetClientVersion(clientID int, version int) (models.ClientVersion, error) {
+	return s.clientRepo.GetClientVersion(clientID, version)
+}

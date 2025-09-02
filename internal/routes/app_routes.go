@@ -25,6 +25,9 @@ func SetupAppRoutes(
 	app.Get("/contracts", appHandlers.ListContracts)
 	app.Get("/contracts/:id", appHandlers.GetContract)
 
+	app.Get("/clients/:id/history", appHandlers.GetClientHistory)
+	app.Get("/clients/:id/history/:version", appHandlers.GetClientVersion)
+
 	app.Post("/auth/register", appHandlers.CreateUser)
 	app.Get("/auth/users", appHandlers.ListUsers)
 	app.Patch("/auth/users/:id/role", appHandlers.UpdateUserRole)

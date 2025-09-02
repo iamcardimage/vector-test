@@ -217,3 +217,33 @@ type GetSecondPartResponse struct {
 type ErrorResponse struct {
 	Error string `json:"error" example:"client not found"`
 }
+
+type ClientHistoryResponse struct {
+	Success  bool                `json:"success" example:"true"`
+	History  []GetClientResponse `json:"history"`
+	Total    int                 `json:"total" example:"5"`
+	ClientID int                 `json:"client_id" example:"123"`
+}
+
+type ClientVersionSummary struct {
+	Version        int        `json:"version" example:"3"`
+	IsCurrent      bool       `json:"is_current" example:"true"`
+	ValidFrom      time.Time  `json:"valid_from" swaggertype:"string" format:"date-time"`
+	ValidTo        *time.Time `json:"valid_to,omitempty" swaggertype:"string" format:"date-time"`
+	SyncedAt       time.Time  `json:"synced_at" swaggertype:"string" format:"date-time"`
+	Status         string     `json:"status" example:"changed"`
+	ChangesSummary []string   `json:"changes_summary,omitempty" example:"contact_email,address"`
+}
+
+type ClientVersionsListResponse struct {
+	Success  bool                   `json:"success" example:"true"`
+	Versions []ClientVersionSummary `json:"versions"`
+	Total    int                    `json:"total" example:"5"`
+	ClientID int                    `json:"client_id" example:"123"`
+}
+
+type GetClientVersionResponse struct {
+	Success  bool              `json:"success" example:"true"`
+	Version  GetClientResponse `json:"version"`
+	ClientID int               `json:"client_id" example:"123"`
+}

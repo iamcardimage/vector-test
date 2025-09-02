@@ -309,3 +309,18 @@ func ListClientsWithSP(
 
 	return
 }
+
+func GetClientHistory(gdb *gorm.DB, clientID int) ([]models.ClientVersion, error) {
+	var versions []models.ClientVersion
+	err := gdb.Where("client_id = ?", clientID).
+		Order("version DESC").
+		Find(&versions).Error
+	return versions, err
+}
+
+func GetClientVersion(gdb *gorm.DB, clientID int, version int) (models.ClientVersion, error) {
+	var clientVersion models.ClientVersion
+	err := gdb.Where("client_id = ? AND version = ?", clientID, version).
+		Take(&clientVersion).Error
+	return clientVersion, err
+}

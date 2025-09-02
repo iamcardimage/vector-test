@@ -47,6 +47,22 @@ definitions:
       version:
         type: integer
     type: object
+  models.ClientHistoryResponse:
+    properties:
+      client_id:
+        example: 123
+        type: integer
+      history:
+        items:
+          $ref: '#/definitions/models.GetClientResponse'
+        type: array
+      success:
+        example: true
+        type: boolean
+      total:
+        example: 5
+        type: integer
+    type: object
   models.ErrorResponse:
     properties:
       error:
@@ -728,6 +744,40 @@ paths:
           schema:
             $ref: '#/definitions/models.ErrorResponse'
       summary: Get client information
+      tags:
+      - clients
+  /clients/{id}/history:
+    get:
+      consumes:
+      - application/json
+      description: Get all versions of a specific client ordered by version (newest
+        first)
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Client history
+          schema:
+            $ref: '#/definitions/models.ClientHistoryResponse'
+        "400":
+          description: Invalid client ID
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Client not found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get client history (all versions)
       tags:
       - clients
   /clients/{id}/second-part/current:

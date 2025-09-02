@@ -16,7 +16,8 @@ type AppClientRepository interface {
 	ApproveSecondPart(clientID int, approvedBy *int) (models.SecondPartVersion, error)
 	RejectSecondPart(clientID int, userID *int, reason string) (models.SecondPartVersion, error)
 	RequestDocsSecondPart(clientID int, userID *int, reason string) (models.SecondPartVersion, error)
-
+	GetClientHistory(clientID int) ([]models.ClientVersion, error)
+	GetClientVersion(clientID int, version int) (models.ClientVersion, error)
 	ListClientsWithSP(page, perPage int, needsSecondPart *bool, spStatus *string, dueBefore *time.Time) ([]models.ClientWithSP, int64, error)
 }
 

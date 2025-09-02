@@ -730,3 +730,284 @@ func (h *AppHandlers) GetSecondPartCurrent(c *fiber.Ctx) error {
 
 	return c.JSON(response)
 }
+
+// GetClientHistory godoc
+// @Summary Get client history (all versions)
+// @Description Get all versions of a specific client ordered by version (newest first)
+// @Tags clients
+// @Accept json
+// @Produce json
+// @Param id path int true "Client ID"
+// @Success 200 {object} models.ClientHistoryResponse "Client history"
+// @Failure 400 {object} models.ErrorResponse "Invalid client ID"
+// @Failure 404 {object} models.ErrorResponse "Client not found"
+// @Failure 500 {object} models.ErrorResponse "Internal server error"
+// @Router /clients/{id}/history [get]
+func (h *AppHandlers) GetClientHistory(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(400).JSON(models.ErrorResponse{Error: "invalid client id"})
+	}
+
+	versions, err := h.appService.GetClientHistory(id)
+	if err != nil {
+		return c.Status(500).JSON(models.ErrorResponse{Error: "failed to get client history: " + err.Error()})
+	}
+
+	if len(versions) == 0 {
+		return c.Status(404).JSON(models.ErrorResponse{Error: "client not found"})
+	}
+
+	versionSummaries := make([]models.ClientVersionSummary, len(versions))
+	for i, version := range versions {
+		var changes []string
+
+		if i < len(versions)-1 {
+
+			changes = detectChanges(&version, &versions[i+1])
+		} else {
+
+			changes = detectChanges(&version, nil)
+		}
+
+		versionSummaries[i] = models.ClientVersionSummary{
+			Version:        version.Version,
+			IsCurrent:      version.IsCurrent,
+			ValidFrom:      version.ValidFrom,
+			ValidTo:        version.ValidTo,
+			SyncedAt:       version.SyncedAt,
+			Status:         version.Status,
+			ChangesSummary: changes,
+		}
+	}
+
+	response := models.ClientVersionsListResponse{
+		Success:  true,
+		Versions: versionSummaries,
+		Total:    len(versionSummaries),
+		ClientID: id,
+	}
+
+	return c.JSON(response)
+}
+
+// GetClientVersion godoc
+// @Summary Get specific client version
+// @Description Get full data of a specific version of a client
+// @Tags clients
+// @Accept json
+// @Produce json
+// @Param id path int true "Client ID"
+// @Param version path int true "Version number"
+// @Success 200 {object} models.GetClientVersionResponse "Client version data"
+// @Failure 400 {object} models.ErrorResponse "Invalid client ID or version"
+// @Failure 404 {object} models.ErrorResponse "Client version not found"
+// @Failure 500 {object} models.ErrorResponse "Internal server error"
+// @Router /clients/{id}/history/{version} [get]
+func (h *AppHandlers) GetClientVersion(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(400).JSON(models.ErrorResponse{Error: "invalid client id"})
+	}
+
+	version, err := strconv.Atoi(c.Params("version"))
+	if err != nil {
+		return c.Status(400).JSON(models.ErrorResponse{Error: "invalid version number"})
+	}
+
+	clientVersion, err := h.appService.GetClientVersion(id, version)
+	if err != nil {
+		return c.Status(404).JSON(models.ErrorResponse{Error: "client version not found"})
+	}
+
+	// Преобразуем в полный ответ
+	versionResponse := convertClientVersionToResponse(clientVersion)
+
+	response := models.GetClientVersionResponse{
+		Success:  true,
+		Version:  versionResponse,
+		ClientID: id,
+	}
+
+	return c.JSON(response)
+}
+
+func convertClientVersionToResponse(cur models.ClientVersion) models.GetClientResponse {
+	response := models.GetClientResponse{
+		ID:            cur.ID,
+		ClientID:      cur.ClientID,
+		Version:       cur.Version,
+		ExternalID:    cur.ID,
+		ExternalIDStr: cur.ExternalIDStr,
+
+		Surname:    cur.Surname,
+		Name:       cur.Name,
+		Patronymic: cur.Patronymic,
+		Birthday:   cur.Birthday,
+		BirthPlace: cur.BirthPlace,
+
+		Inn:             cur.Inn,
+		Snils:           cur.Snils,
+		PassSeries:      cur.PassSeries,
+		PassNumber:      cur.PassNumber,
+		PassIssueDate:   cur.PassIssueDate,
+		PassIssuer:      cur.PassIssuer,
+		PassIssuerCode:  cur.PassIssuerCode,
+		DocumentType:    cur.DocumentType,
+		DocumentCountry: cur.DocumentCountry,
+
+		ContactEmail: cur.ContactEmail,
+		MainPhone:    cur.MainPhone,
+		Login:        cur.Login,
+
+		Blocked:            cur.Blocked,
+		BlockedReason:      cur.BlockedReason,
+		BlockType:          cur.BlockType,
+		Male:               cur.Male,
+		IsRfResident:       cur.IsRfResident,
+		IsRfTaxpayer:       cur.IsRfTaxpayer,
+		IsValidInfo:        cur.IsValidInfo,
+		QualifiedInvestor:  cur.QualifiedInvestor,
+		IsFilled:           cur.IsFilled,
+		IsAmericanNational: cur.IsAmericanNational,
+		NeedToSetPassword:  cur.NeedToSetPassword,
+
+		LegalCapacity:      cur.LegalCapacity,
+		PifsPortfolioCode:  cur.PifsPortfolioCode,
+		RiskLevel:          cur.RiskLevel,
+		ExternalRiskLevel:  cur.ExternalRiskLevel,
+		FillStage:          cur.FillStage,
+		IdentificationType: cur.IdentificationType,
+		TaxStatus:          cur.TaxStatus,
+
+		EsiaID:       cur.EsiaID,
+		AgentID:      cur.AgentID,
+		AgentPointID: cur.AgentPointID,
+
+		Country:  cur.Country,
+		Region:   cur.Region,
+		Index:    cur.Index,
+		City:     cur.City,
+		Street:   cur.Street,
+		House:    cur.House,
+		Corps:    cur.Corps,
+		Flat:     cur.Flat,
+		District: cur.District,
+
+		SignatureType:              cur.SignatureType,
+		DataReceivedDigitalProfile: cur.DataReceivedDigitalProfile,
+		LockedAt:                   cur.LockedAt,
+		CurrentSignInAt:            cur.CurrentSignInAt,
+		SignInCount:                cur.SignInCount,
+
+		CreatedLKAt: cur.CreatedLKAt,
+		UpdatedLKAt: cur.UpdatedLKAt,
+		SyncedAt:    cur.SyncedAt,
+		ValidFrom:   cur.ValidFrom,
+		ValidTo:     cur.ValidTo,
+		IsCurrent:   cur.IsCurrent,
+
+		Hash:                  cur.Hash,
+		Status:                cur.Status,
+		SecondPartTriggerHash: cur.SecondPartTriggerHash,
+
+		NeedsSecondPart:   cur.NeedsSecondPart,
+		SecondPartCreated: cur.SecondPartCreated,
+	}
+
+	response.FromCompanySettings = convertJSONToMap(cur.FromCompanySettings)
+	response.Settings = convertJSONToMap(cur.Settings)
+	response.PersonInfo = convertJSONToMap(cur.PersonInfo)
+	response.Manager = convertJSONToMap(cur.Manager)
+	response.Checks = convertJSONToMap(cur.Checks)
+	response.Note = convertJSONToMap(cur.Note)
+	response.AdSource = convertJSONToMap(cur.AdSource)
+	response.SignatureAllowedNumbers = convertJSONToMap(cur.SignatureAllowedNumbers)
+	response.Raw = convertJSONToMap(cur.Raw)
+
+	return response
+}
+
+func detectChanges(current, previous *models.ClientVersion) []string {
+	if previous == nil {
+		return []string{"initial_version"}
+	}
+
+	var changes []string
+
+	if current.Surname != previous.Surname {
+		changes = append(changes, "surname")
+	}
+	if current.Name != previous.Name {
+		changes = append(changes, "name")
+	}
+	if current.Patronymic != previous.Patronymic {
+		changes = append(changes, "patronymic")
+	}
+	if current.Birthday != previous.Birthday {
+		changes = append(changes, "birthday")
+	}
+	if current.BirthPlace != previous.BirthPlace {
+		changes = append(changes, "birth_place")
+	}
+
+	if current.ContactEmail != previous.ContactEmail {
+		changes = append(changes, "contact_email")
+	}
+	if current.MainPhone != previous.MainPhone {
+		changes = append(changes, "main_phone")
+	}
+
+	if current.Inn != previous.Inn {
+		changes = append(changes, "inn")
+	}
+	if current.Snils != previous.Snils {
+		changes = append(changes, "snils")
+	}
+	if current.PassSeries != previous.PassSeries || current.PassNumber != previous.PassNumber {
+		changes = append(changes, "passport_data")
+	}
+	if current.PassIssueDate != previous.PassIssueDate || current.PassIssuer != previous.PassIssuer {
+		changes = append(changes, "passport_issue_info")
+	}
+
+	if current.Country != previous.Country || current.Region != previous.Region ||
+		current.City != previous.City || current.Street != previous.Street ||
+		current.House != previous.House {
+		changes = append(changes, "address")
+	}
+
+	if current.RiskLevel != previous.RiskLevel {
+		changes = append(changes, "risk_level")
+	}
+	if current.ExternalRiskLevel != previous.ExternalRiskLevel {
+		changes = append(changes, "external_risk_level")
+	}
+
+	if (current.Blocked == nil) != (previous.Blocked == nil) ||
+		(current.Blocked != nil && previous.Blocked != nil && *current.Blocked != *previous.Blocked) {
+		changes = append(changes, "blocked_status")
+	}
+
+	if (current.Male == nil) != (previous.Male == nil) ||
+		(current.Male != nil && previous.Male != nil && *current.Male != *previous.Male) {
+		changes = append(changes, "gender")
+	}
+
+	if (current.IsRfResident == nil) != (previous.IsRfResident == nil) ||
+		(current.IsRfResident != nil && previous.IsRfResident != nil && *current.IsRfResident != *previous.IsRfResident) {
+		changes = append(changes, "rf_resident_status")
+	}
+
+	if string(current.PersonInfo) != string(previous.PersonInfo) {
+		changes = append(changes, "person_info")
+	}
+	if string(current.Settings) != string(previous.Settings) {
+		changes = append(changes, "settings")
+	}
+	if string(current.Manager) != string(previous.Manager) {
+		changes = append(changes, "manager")
+	}
+
+	return changes
+}
